@@ -87,7 +87,7 @@ python3 self_evolving_agent_crawler.py --env-file .env --config config.example.j
 - `max_depth`：从起始网址最多往下点几层链接。
 - `output_dir`：本次挖掘任务的输出目录。不同任务建议使用不同目录，避免结果和状态混在一起。
 
-爬虫不再用 `max_pages` 定义挖掘范围。代码里保留了一个内部安全上限 `safety_max_pages`，只用于防止异常站点无限爬取，正常任务不用配置。
+代码里保留了一个内部安全上限 `safety_max_pages`，只用于防止异常站点无限爬取，正常任务不用配置。
 
 ## 3. 运行爬虫
 
