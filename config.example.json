@@ -1,8 +1,9 @@
 {
   "seeds": [
-    "http://www.ccgp.gov.cn/"
+    "https://www.ggzy.gov.cn/"
   ],
   "recent_days": 1,
-  "max_depth": 2,
-  "output_dir": "data/ccgp_gov"
+  "max_depth": 3,
+  "safety_max_pages": 1000,
+  "output_dir": "data/ggzy_gov"
 }

@@ -132,6 +132,27 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(len(crawler.frontier), 1)
         self.assertEqual(crawler.frontier[0].url, "https://docs.example.com/page")
 
+    def test_frontier_can_be_saved_and_restored(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = CrawlerConfig.from_dict(
+                {
+                    "seeds": ["https://www.example.com/"],
+                    "output_dir": tmpdir,
+                    "state_path": os.path.join(tmpdir, "state.json"),
+                    "ai": {"enabled": False},
+                }
+            )
+            crawler = SelfEvolvingCrawler(config)
+            crawler.enqueue("https://www.example.com/detail", depth=1, parent_score=0.8, anchor_text="详情")
+            crawler.save_pending_frontier()
+            crawler.memory.save()
+
+            restored = SelfEvolvingCrawler(config)
+            restored.restore_pending_frontier()
+
+            self.assertEqual(len(restored.frontier), 1)
+            self.assertEqual(restored.frontier[0].url, "https://www.example.com/detail")
+
     def test_detect_blocked_reason(self) -> None:
         config = CrawlerConfig.from_dict({"seeds": ["https://example.com/"], "ai": {"enabled": False}})
         crawler = SelfEvolvingCrawler(config)

@@ -560,6 +560,7 @@ class AgentMemory:
     def __init__(self, path: str, min_delay: float) -> None:
         self.path = path
         self.seen_urls: set[str] = set()
+        self.pending_frontier: list[dict[str, Any]] = []
         self.domain_delay: dict[str, float] = {}
         self.domain_block_count: dict[str, int] = {}
         self.domain_blocked_until: dict[str, float] = {}
@@ -582,6 +583,11 @@ class AgentMemory:
             raw = json.load(handle)
 
         memory.seen_urls = set(raw.get("seen_urls", []))
+        memory.pending_frontier = [
+            item
+            for item in raw.get("pending_frontier", [])
+            if isinstance(item, dict) and item.get("url")
+        ]
         memory.domain_delay = {
             str(key): float(value)
             for key, value in raw.get("domain_delay", {}).items()
@@ -612,6 +618,7 @@ class AgentMemory:
             "version": 1,
             "updated_at": utc_now(),
             "seen_urls": sorted(self.seen_urls),
+            "pending_frontier": self.pending_frontier,
             "domain_delay": self.domain_delay,
             "domain_block_count": self.domain_block_count,
             "domain_blocked_until": self.domain_blocked_until,
@@ -855,146 +862,239 @@ class SelfEvolvingCrawler:
         os.makedirs(os.path.join(self.config.output_dir, "pages"), exist_ok=True)
         os.makedirs(os.path.join(self.config.output_dir, "opportunities"), exist_ok=True)
 
+        self.restore_pending_frontier()
         for seed in self.config.seeds:
             self.enqueue(seed, depth=0, parent_score=1.0, anchor_text="")
+        if not self.frontier:
+            rebuilt = self.rebuild_frontier_from_saved_pages()
+            if rebuilt:
+                print(f"[frontier] rebuilt={rebuilt} from saved pages")
 
         saved = 0
-        while self.frontier and saved < self.config.safety_max_pages:
-            item = heapq.heappop(self.frontier)
-            if item.url in self.memory.seen_urls:
-                continue
-            if item.depth > self.config.max_depth:
-                continue
-            if not self.in_scope(item.url):
-                continue
-            if self.config.obey_robots and not self.robot_allowed(item.url):
-                self.memory.seen_urls.add(item.url)
-                continue
+        deferred_items: list[FrontierItem] = []
+        interrupted = False
+        current_item: FrontierItem | None = None
+        try:
+            while self.frontier and saved < self.config.safety_max_pages:
+                current_item = heapq.heappop(self.frontier)
+                item = current_item
+                if item.url in self.memory.seen_urls:
+                    current_item = None
+                    continue
+                if item.depth > self.config.max_depth:
+                    current_item = None
+                    continue
+                if not self.in_scope(item.url):
+                    current_item = None
+                    continue
+                if self.config.obey_robots and not self.robot_allowed(item.url):
+                    self.memory.seen_urls.add(item.url)
+                    current_item = None
+                    continue
 
-            domain = domain_of(item.url)
-            pause_remaining = self.memory.domain_pause_remaining(domain)
-            if pause_remaining > 0:
-                print(
-                    f"[pause] domain={domain} remaining={pause_remaining:.0f}s reason=blocked_cooldown",
-                    file=sys.stderr,
-                )
-                continue
-            self.wait_for_domain(domain)
-            print(f"[fetch] depth={item.depth} url={item.url}")
-            result = self.fetch(item.url)
-            if int(result.get("status", 0)) != 0:
-                self.memory.seen_urls.add(item.url)
+                domain = domain_of(item.url)
+                pause_remaining = self.memory.domain_pause_remaining(domain)
+                if pause_remaining > 0:
+                    deferred_items.append(item)
+                    print(
+                        f"[pause] domain={domain} remaining={pause_remaining:.0f}s reason=blocked_cooldown",
+                        file=sys.stderr,
+                    )
+                    current_item = None
+                    continue
+                self.wait_for_domain(domain)
+                print(f"[fetch] depth={item.depth} url={item.url}")
+                result = self.fetch(item.url)
+                if int(result.get("status", 0)) != 0:
+                    self.memory.seen_urls.add(item.url)
 
-            strategy = None
-            reward = 0.0
-            blocked_reason = str(result.get("blocked_reason", ""))
-            if blocked_reason:
-                saved += 1
-                page = {
-                    "url": item.url,
-                    "depth": item.depth,
-                    "fetched_at": utc_now(),
-                    "status": result["status"],
-                    "content_type": result.get("content_type", ""),
-                    "title": "",
-                    "description": "",
-                    "extraction_strategy": None,
-                    "reward": 0.0,
-                    "page_score": 0.0,
-                    "blocked_reason": blocked_reason,
-                    "ai_analysis": {
-                        "is_opportunity": False,
-                        "opportunity_score": 0.0,
-                        "business_stage": "not_opportunity",
-                        "page_type": "blocked",
+                strategy = None
+                reward = 0.0
+                blocked_reason = str(result.get("blocked_reason", ""))
+                if blocked_reason:
+                    saved += 1
+                    page = {
+                        "url": item.url,
+                        "depth": item.depth,
+                        "fetched_at": utc_now(),
+                        "status": result["status"],
+                        "content_type": result.get("content_type", ""),
+                        "title": "",
+                        "description": "",
+                        "extraction_strategy": None,
+                        "reward": 0.0,
+                        "page_score": 0.0,
                         "blocked_reason": blocked_reason,
-                    },
-                    "text": result.get("html", "")[:2000],
-                    "links": [],
-                }
-                self.save_page(page)
-                print(f"[blocked] domain={domain} reason={blocked_reason} url={item.url}", file=sys.stderr)
-            elif result.get("html"):
-                parser = PageParser()
-                parser.feed(result["html"])
-                strategy, text, reward = self.memory.choose_extraction(parser.candidates(), self.config.keywords)
-                link_pairs = list(parser.links)
-                link_pairs.extend((href, "") for href in extract_urls_from_text(result["html"]))
-                links = []
-                seen_page_links: set[str] = set()
-                for href, _anchor in link_pairs:
-                    canonical = canonical_url(href, item.url)
-                    if canonical and canonical not in seen_page_links:
-                        links.append(canonical)
-                        seen_page_links.add(canonical)
-                ai_analysis = self.analyze_page_with_ai(
-                    url=item.url,
-                    title=parser.title,
-                    description=parser.description,
-                    text=text,
-                    links=links,
-                )
-                if ai_analysis is None:
-                    ai_analysis = self.rule_opportunity_analysis(
+                        "ai_analysis": {
+                            "is_opportunity": False,
+                            "opportunity_score": 0.0,
+                            "business_stage": "not_opportunity",
+                            "page_type": "blocked",
+                            "blocked_reason": blocked_reason,
+                        },
+                        "text": result.get("html", "")[:2000],
+                        "links": [],
+                    }
+                    self.save_page(page)
+                    print(f"[blocked] domain={domain} reason={blocked_reason} url={item.url}", file=sys.stderr)
+                elif result.get("html"):
+                    parser = PageParser()
+                    parser.feed(result["html"])
+                    strategy, text, reward = self.memory.choose_extraction(parser.candidates(), self.config.keywords)
+                    link_pairs = list(parser.links)
+                    link_pairs.extend((href, "") for href in extract_urls_from_text(result["html"]))
+                    links = []
+                    seen_page_links: set[str] = set()
+                    for href, _anchor in link_pairs:
+                        canonical = canonical_url(href, item.url)
+                        if canonical and canonical not in seen_page_links:
+                            links.append(canonical)
+                            seen_page_links.add(canonical)
+                    ai_analysis = self.analyze_page_with_ai(
                         url=item.url,
                         title=parser.title,
                         description=parser.description,
                         text=text,
                         links=links,
                     )
-                ai_analysis = self.refine_opportunity_analysis(
-                    url=item.url,
-                    title=parser.title,
-                    text=text,
-                    links=links,
-                    analysis=ai_analysis,
-                )
-                page_score = self.page_score(parser.title, parser.description, text, reward, ai_analysis)
+                    if ai_analysis is None:
+                        ai_analysis = self.rule_opportunity_analysis(
+                            url=item.url,
+                            title=parser.title,
+                            description=parser.description,
+                            text=text,
+                            links=links,
+                        )
+                    ai_analysis = self.refine_opportunity_analysis(
+                        url=item.url,
+                        title=parser.title,
+                        text=text,
+                        links=links,
+                        analysis=ai_analysis,
+                    )
+                    page_score = self.page_score(parser.title, parser.description, text, reward, ai_analysis)
 
-                saved += 1
-                page = {
+                    saved += 1
+                    page = {
+                        "url": item.url,
+                        "depth": item.depth,
+                        "fetched_at": utc_now(),
+                        "status": result["status"],
+                        "content_type": result.get("content_type", ""),
+                        "title": parser.title,
+                        "description": parser.description,
+                        "extraction_strategy": strategy,
+                        "reward": reward,
+                        "page_score": page_score,
+                        "ai_analysis": ai_analysis,
+                        "text": text,
+                        "links": links,
+                    }
+                    self.save_page(page)
+                    self.save_opportunity(page)
+
+                    for href, anchor_text in link_pairs:
+                        url = canonical_url(href, item.url)
+                        if not url:
+                            continue
+                        self.enqueue(
+                            url,
+                            depth=item.depth + 1,
+                            parent_score=page_score,
+                            anchor_text=anchor_text,
+                            ai_analysis=ai_analysis,
+                        )
+
+                self.memory.evolve_after_page(
+                    domain=domain,
+                    status=int(result.get("status", 0)),
+                    extraction_strategy=strategy,
+                    reward=reward,
+                    config=self.config,
+                    blocked_reason=blocked_reason,
+                    retry_after_seconds=result.get("retry_after_seconds"),
+                )
+                self.memory.save()
+                current_item = None
+        except KeyboardInterrupt:
+            interrupted = True
+            print("[interrupt] stopping after current signal; saving state and summaries...", file=sys.stderr)
+        finally:
+            if current_item is not None and current_item.url not in self.memory.seen_urls:
+                heapq.heappush(self.frontier, current_item)
+            for item in deferred_items:
+                heapq.heappush(self.frontier, item)
+            self.save_pending_frontier()
+            self.memory.save()
+            self.write_opportunity_summaries()
+
+        status = "interrupted" if interrupted else "done"
+        print(f"[{status}] saved_pages={saved} seen={len(self.memory.seen_urls)} state={self.config.state_path}")
+
+    def restore_pending_frontier(self) -> None:
+        pending = list(self.memory.pending_frontier)
+        self.memory.pending_frontier = []
+        restored = 0
+        for item in pending:
+            url = canonical_url(str(item.get("url", "")))
+            if not url or url in self.memory.seen_urls or url in self.enqueued:
+                continue
+            depth = int(item.get("depth", 0))
+            if depth > self.config.max_depth or not self.in_scope(url):
+                continue
+            parent_score = float(item.get("parent_score", 0.0))
+            priority = float(item.get("priority", -self.url_score(url, "", parent_score, depth)))
+            heapq.heappush(self.frontier, FrontierItem(priority=priority, url=url, depth=depth, parent_score=parent_score))
+            self.enqueued.add(url)
+            restored += 1
+        if restored:
+            print(f"[frontier] restored={restored} from state")
+
+    def save_pending_frontier(self) -> None:
+        pending: list[dict[str, Any]] = []
+        seen_pending: set[str] = set()
+        for item in sorted(self.frontier):
+            if item.url in self.memory.seen_urls or item.url in seen_pending:
+                continue
+            pending.append(
+                {
                     "url": item.url,
                     "depth": item.depth,
-                    "fetched_at": utc_now(),
-                    "status": result["status"],
-                    "content_type": result.get("content_type", ""),
-                    "title": parser.title,
-                    "description": parser.description,
-                    "extraction_strategy": strategy,
-                    "reward": reward,
-                    "page_score": page_score,
-                    "ai_analysis": ai_analysis,
-                    "text": text,
-                    "links": links,
+                    "parent_score": item.parent_score,
+                    "priority": item.priority,
                 }
-                self.save_page(page)
-                self.save_opportunity(page)
-
-                for href, anchor_text in link_pairs:
-                    url = canonical_url(href, item.url)
-                    if not url:
-                        continue
-                    self.enqueue(
-                        url,
-                        depth=item.depth + 1,
-                        parent_score=page_score,
-                        anchor_text=anchor_text,
-                        ai_analysis=ai_analysis,
-                    )
-
-            self.memory.evolve_after_page(
-                domain=domain,
-                status=int(result.get("status", 0)),
-                extraction_strategy=strategy,
-                reward=reward,
-                config=self.config,
-                blocked_reason=blocked_reason,
-                retry_after_seconds=result.get("retry_after_seconds"),
             )
-            self.memory.save()
+            seen_pending.add(item.url)
+        self.memory.pending_frontier = pending[: self.config.safety_max_pages * 3]
 
-        self.write_opportunity_summaries()
-        print(f"[done] saved_pages={saved} seen={len(self.memory.seen_urls)} state={self.config.state_path}")
+    def rebuild_frontier_from_saved_pages(self) -> int:
+        pages_dir = os.path.join(self.config.output_dir, "pages")
+        if not os.path.isdir(pages_dir):
+            return 0
+        rebuilt = 0
+        for name in sorted(os.listdir(pages_dir)):
+            if not name.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(pages_dir, name), "r", encoding="utf-8") as handle:
+                    page = json.load(handle)
+            except (OSError, json.JSONDecodeError):
+                continue
+            page_depth = int(page.get("depth", 0))
+            next_depth = page_depth + 1
+            if next_depth > self.config.max_depth:
+                continue
+            parent_score = float(page.get("page_score", 0.0))
+            links = page.get("links", [])
+            if not isinstance(links, list):
+                continue
+            for raw_link in links:
+                url = canonical_url(str(raw_link), str(page.get("url", "")))
+                if not url or url in self.memory.seen_urls or url in self.enqueued or not self.in_scope(url):
+                    continue
+                self.enqueue(url, depth=next_depth, parent_score=parent_score, anchor_text="")
+                rebuilt += 1
+        return rebuilt
 
     def in_scope(self, url: str) -> bool:
         host = domain_of(url)
