@@ -1,0 +1,78 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/b/530000/0105/20260604/005318044aeb534746b48d5f069238d032a2.html",
+  "depth": 2,
+  "fetched_at": "2026-07-10T03:13:43.990613+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "全国公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5454,
+  "page_score": 0.5405,
+  "ai_analysis": {
+    "is_opportunity": false,
+    "opportunity_score": 0.3,
+    "business_stage": "tender_notice",
+    "summary": "页面为招标文件下载页，招标公告内容不完整，缺失核心字段（预算、截止时间、联系方式等），且发布日期为2026-06-04，超出1天范围，无法作为有效商机。",
+    "project_id": null,
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": "永胜县六德乡卫生院业务综合楼建设项目",
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-06-04",
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "控制价（最高限价）0元（异常）",
+      "开标时间、地点、方式均为空",
+      "投标截止时间未显示",
+      "联系人、电话、地址缺失"
+    ],
+    "recommended_action": "忽略该页面，寻找更完整的招标公告详情页。",
+    "link_hints": [],
+    "crawl_decision": "stop",
+    "reason": "页面信息不完整，关键字段缺失，发布时间超出1天范围，且预算异常（0元），非有效商机。",
+    "structured_fields": {},
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-06-04",
+      "normalized": "2026-06-04",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "（招标）永胜县六德乡卫生院业务综合楼建设项目.ZBJ 递交时间：2026-06-04 10:58 信息来源： 丽江市公共资源交易中心 文件编号 投标资格 投标文件递交截止时间 投标有效期 90 投标文件递交方法 投标保证金缴纳方式 投标保证金金额 70,000元 人民币 控制价（最高限价） 0元 人民币 评标办法 详见招标文件 开标时间 开标地点 开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 详见招标文件 递交时间",
+  "links": []
+}

@@ -1,0 +1,94 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/130000/0101/20260710/001350b341a89562491c9aec075055e9686c.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:12:33.710595+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "献县2026年子牙天路片区基础设施项目（二次）招标公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.4174,
+  "page_score": 0.7071,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "tender_notice",
+    "summary": "页面为河北省公共资源交易平台上的一个招标公告列表/导航页，标题虽为'献县2026年子牙天路片区基础设施项目（二次）招标公告'，但实际文本内容仅包含项目名称、编号和日期列表，未展示完整的招标公告详情（如预算、截止时间、联系方式等），且包含多个历史记录链接，无法确认是否为最新1天内发布的完整项目详情。",
+    "project_id": "E1309005190004589001",
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": null,
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": null,
+    "contact": null,
+    "address": null,
+    "evidence": [],
+    "recommended_action": "由于页面内容不完整且疑似为列表或摘要页，建议进一步爬取具体项目详情页（如链接至b/130000/0101/20260710/001350b341a89562491c9aec075055e9686c.html）以获取完整信息。",
+    "link_hints": [
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0101/20260710/001350b341a89562491c9aec075055e9686c.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0101/20260617/00136f9d2fc2683542608ec78aab9ab3aab7.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260710/00133277a56822d447fdb1ba47d220e44ecd.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260710/0013a4248aef648748138e9fea4dd7c73212.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260617/00134726bf3c388c40049e0406649f30e123.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260617/001307de5ffaef5949a9a401069c90287937.html"
+    ],
+    "crawl_decision": "follow",
+    "reason": "页面标题包含'招标公告'，但实际内容仅为列表/摘要，未包含完整的项目详情（如预算、截止时间、联系方式），不符合商机判定标准。然而，页面包含指向具体详情页的链接，这些链接可能包含完整商机信息，因此建议跟进爬取。",
+    "project_name": "献县2026年子牙天路片区基础设施项目（二次）",
+    "structured_fields": {
+      "project_name": "献县2026年子牙天路片区基础设施项目（二次）",
+      "project_id": "E1309005190004589001"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 工程建设 献县2026年子牙天路片区基础设施项目（二次）招标公告 招标项目编号：E1309005190004589001 信息来源： 河北省 招标/资审公告 开标记录 交易结果公示 招标/资审文件澄清 献县2026年子牙天路片区基础设施项目（二次）招标公告 2026-07-10 献县2026年子牙天路片区基础设施项目 2026-06-17 暂无数据 暂无数据 献县2026年子牙天路片区基础设施项目 2026-07-10 献县2026年子牙天路片区基础设施项目 2026-07-10 献县2026年子牙天路片区基础设施项目 2026-06-17 献县2026年子牙天路片区基础设施项目 2026-06-17",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0101/20260710/001350b341a89562491c9aec075055e9686c.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0101/20260617/00136f9d2fc2683542608ec78aab9ab3aab7.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260710/00133277a56822d447fdb1ba47d220e44ecd.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260710/0013a4248aef648748138e9fea4dd7c73212.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260617/00134726bf3c388c40049e0406649f30e123.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260617/001307de5ffaef5949a9a401069c90287937.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

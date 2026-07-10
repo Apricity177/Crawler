@@ -1,0 +1,87 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/510000/0201/20260710/0051da33af4d66074cc2af075a22e8102bea.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:12:49.501252+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "开江县人民医院人民医院购买洗涤服务竞争性磋商公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5032,
+  "page_score": 0.9184,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.9,
+    "business_stage": "procurement_notice",
+    "summary": "开江县人民医院购买洗涤服务竞争性磋商公告，项目编号N5117232026000039，发布日期2026-07-10。",
+    "project_id": "N5117232026000039",
+    "customer_or_org": "开江县人民医院",
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": "购买洗涤服务",
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "https://www.ggzy.gov.cn/information/deal/html/a/510000/0201/20260710/0051da33af4d66074cc2af075a22e8102bea.html",
+      "标题：开江县人民医院人民医院购买洗涤服务竞争性磋商公告",
+      "采购项目编号：N5117232026000039",
+      "发布日期：2026-07-10"
+    ],
+    "recommended_action": "立即跟进，联系采购人获取详细采购文件并准备投标或合作方案。",
+    "link_hints": [
+      "https://www.ggzy.gov.cn/information/deal/html/b/510000/0201/20260710/0051da33af4d66074cc2af075a22e8102bea.html"
+    ],
+    "crawl_decision": "follow",
+    "reason": "页面为政府采购竞争性磋商公告详情页，发布日期为2026-07-10（在1天内），包含明确的采购人、项目编号和需求，符合商机条件。",
+    "structured_fields": {
+      "project_id": "N5117232026000039"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org"
+      ],
+      "missing": [
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.2
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 政府采购 开江县人民医院人民医院购买洗涤服务竞争性磋商公告 采购项目编号：N5117232026000039 信息来源： 四川省 采购/资审公告 中标公告 采购合同 更正事项 开江县人民医院人民医院购买洗涤服务竞争性磋商公告 2026-07-10 暂无数据 暂无数据 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/510000/0201/20260710/0051da33af4d66074cc2af075a22e8102bea.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

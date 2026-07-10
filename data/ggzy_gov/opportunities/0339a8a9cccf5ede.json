@@ -1,0 +1,84 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/b/450000/0202/20260710/0045abb99b0e010144bbaf6430e8315874b2.html",
+  "title": "全国公共资源交易平台",
+  "fetched_at": "2026-07-10T03:14:09.583135+00:00",
+  "page_score": 0.935,
+  "opportunity_score": 0.9,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.9,
+    "business_stage": "procurement_notice",
+    "summary": "融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程成交公告，成交金额1646399.09元，中标供应商为广西亿腾建筑工程有限公司，发布日期为2026-07-10。",
+    "project_id": "LZZC2026-C2-240068-GXGH",
+    "customer_or_org": "融安县易地搬迁服务中心",
+    "agency": "广西广汇源项目管理有限公司",
+    "supplier_or_winner": "广西亿腾建筑工程有限公司",
+    "need": "融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程一项",
+    "budget_or_scale": "1646399.09",
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": "0772-3993686",
+    "address": "融安县长安镇立新街126号（原政府大院政府办办公楼三楼）",
+    "evidence": [
+      "项目编号：LZZC2026-C2-240068-GXGH",
+      "成交金额：1646399.09元",
+      "中标供应商：广西亿腾建筑工程有限公司",
+      "采购人：融安县易地搬迁服务中心",
+      "代理机构：广西广汇源项目管理有限公司",
+      "联系方式：0772-3993686",
+      "发布日期：2026-07-10"
+    ],
+    "recommended_action": "由于页面是中标结果公告，且发布日期为2026-07-10（假设当前日期为2026-07-10，符合1天内），可视为近期商机。建议跟进采购人融安县易地搬迁服务中心，了解后续同类项目或维护需求；同时可联系中标供应商广西亿腾建筑工程有限公司寻求合作。",
+    "link_hints": [
+      {
+        "url": "http://ggzy.jgswj.gxzf.gov.cn/gxggzy/jump.html?infoid=a2348c5a-3d99-4849-928e-773159f61fbc&categorynum=001001001001",
+        "type": "original_source"
+      },
+      {
+        "url": "https://www.ggzy.gov.cn/information",
+        "type": "market_research"
+      }
+    ],
+    "crawl_decision": "follow",
+    "reason": "页面为具体项目详情页（成交公告），包含完整商机信息（项目编号、预算金额、采购人、代理机构、联系方式、发布日期等），且发布日期在1天内，符合商机挖掘条件。",
+    "structured_fields": {
+      "project_id": "LZZC2026-C2-240068-GXGH",
+      "publish_date": "2026-07-10",
+      "contact": "0772-3993686"
+    },
+    "budget_normalized": {
+      "raw": "1646399.09",
+      "amount_yuan": 1646399.09,
+      "unit": "元",
+      "display": "1646399.09元"
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org",
+        "budget_or_scale",
+        "contact",
+        "address"
+      ],
+      "missing": [
+        "deadline"
+      ],
+      "ratio": 0.8
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "deadline"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  }
+}

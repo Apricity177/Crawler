@@ -1,0 +1,98 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/450000/0202/20260710/0045abb99b0e010144bbaf6430e8315874b2.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:14:04.075076+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程（LZZC2026-C2-240068-GXGH）成交公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.4232,
+  "page_score": 0.7233,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "award_result",
+    "summary": "页面为成交公告详情页，但发布日期为2026-07-10，超出最近1天范围，无法作为可跟进的商机，仅可作市场参考。",
+    "project_id": "LZZC2026-C2-240068-GXGH",
+    "customer_or_org": "融安县易地搬迁安置点",
+    "agency": "广西广汇源项目管理有限公司",
+    "supplier_or_winner": null,
+    "need": "融城楼栋房屋顶部外墙维修工程",
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "标题含'成交公告'",
+      "发布日期2026-07-10",
+      "项目编号LZZC2026-C2-240068-GXGH",
+      "采购人/组织：融安县易地搬迁安置点",
+      "代理机构：广西广汇源项目管理有限公司",
+      "项目需求：融城楼栋房屋顶部外墙维修工程"
+    ],
+    "recommended_action": "无跟进动作，因发布日期远超1天范围，且为已成交结果，无法参与。",
+    "link_hints": [
+      "https://www.ggzy.gov.cn/information/deal/html/b/450000/0201/20260710/1b6789c7b24a3257f1c7ba43d102ac29.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/450000/0201/20260625/0045eb1f6551daa44480b688927e3d87de08.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/450000/0202/20260710/0045abb99b0e010144bbaf6430e8315874b2.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/450000/0202/20260710/0045a104ae27a9a44106b8a3b3189371d939.html",
+      "https://www.ggzy.gov.cn/information",
+      "https://www.ggzy.gov.cn/component/header.html",
+      "https://www.ggzy.gov.cn/component/footer.html"
+    ],
+    "crawl_decision": "stop",
+    "reason": "页面为成交公告详情页，但发布日期为2026-07-10，超出最近1天范围；且为已成交结果，无跟进价值。",
+    "structured_fields": {
+      "project_id": "LZZC2026-C2-240068-GXGH"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org"
+      ],
+      "missing": [
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.2
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 政府采购 广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程（LZZC2026-C2-240068-GXGH）成交公告 采购项目编号：LZZC2026-C2-240068-GXGH 信息来源： 柳州市公共资源交易中心 采购/资审公告 中标公告 采购合同 更正事项 广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程（LZZC2026-C2-240068-GXGH）成交公告 2026-07-10 广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程的竞争性磋商公告 2026-06-25 广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程（LZZC2026-C2-240068-GXGH）成交公告 2026-07-10 广西广汇源项目管理有限公司关于融安县易地搬迁安置点融城楼栋房屋顶部外墙维修工程（LZZC2026-C2-240068-GXGH）成交公告 2026-07-10 暂无数据 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/450000/0201/20260710/1b6789c7b24a3257f1c7ba43d102ac29.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/450000/0201/20260625/0045eb1f6551daa44480b688927e3d87de08.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/450000/0202/20260710/0045abb99b0e010144bbaf6430e8315874b2.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/450000/0202/20260710/0045a104ae27a9a44106b8a3b3189371d939.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

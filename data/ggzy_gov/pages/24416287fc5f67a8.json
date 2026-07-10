@@ -1,0 +1,82 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/440000/0101/20260710/004423f412741a904fbf8da19ba62a20a717.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:12:29.809176+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "博罗县新建罗阳水厂项目监理【监理】招标公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.4735,
+  "page_score": 0.7156,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "tender_notice",
+    "summary": "页面为招标公告标题，但正文内容仅包含导航链接和'暂无数据'等占位信息，未提供项目详情、预算、截止时间等关键字段，无法确认是否为有效商机。且发布日期为2026-07-10（远超1天范围），不予跟进。",
+    "project_id": "E4413000835r10036001",
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": null,
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": null,
+    "evidence": [],
+    "recommended_action": "忽略该页面，继续爬取其他有效的招标公告详情页。",
+    "link_hints": [],
+    "crawl_decision": "stop",
+    "reason": "页面内容为空（仅占位符），且发布日期远超1天范围，不符合商机挖掘条件。",
+    "project_name": "博罗县新建罗阳水厂项目监理【监理】",
+    "structured_fields": {
+      "project_name": "博罗县新建罗阳水厂项目监理【监理】",
+      "project_id": "E4413000835r10036001"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 工程建设 博罗县新建罗阳水厂项目监理【监理】招标公告 招标项目编号：E4413000835r10036001 信息来源： 惠州市公共资源交易中心 招标/资审公告 开标记录 交易结果公示 招标/资审文件澄清 博罗县新建罗阳水厂项目监理【监理】招标公告 2026-07-10 暂无数据 暂无数据 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/440000/0101/20260710/004423f412741a904fbf8da19ba62a20a717.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

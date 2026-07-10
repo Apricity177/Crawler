@@ -1,0 +1,86 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/b/510000/0202/20260710/00519dc0ebd9f8664fef9445245325b1a164.html",
+  "title": "全国公共资源交易平台",
+  "fetched_at": "2026-07-10T03:13:52.549246+00:00",
+  "page_score": 0.74,
+  "opportunity_score": 0.6,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "procurement_notice",
+    "summary": "该页面为色达县住房和城乡建设局甘孜州色达县翁达镇自来水厂建设项目施工图设计的中标（成交）结果公告，发布时间为2026-07-10，已超出最近1天范围，且为已结束项目，不具备跟进价值。",
+    "project_id": "N5133332026000054",
+    "customer_or_org": "色达县住房和城乡建设局",
+    "agency": "中泰民顺建设集团有限公司",
+    "supplier_or_winner": "中维国际工程设计有限公司",
+    "need": "甘孜州色达县翁达镇自来水厂建设项目施工图设计",
+    "budget_or_scale": "528,300.00元",
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": "0836-2608331",
+    "address": "色达县金马大道东路6号",
+    "evidence": [
+      "页面标题：色达县住房和城乡建设局甘孜州色达县翁达镇自来水厂建设项目施工图设计中标（成交）结果公告",
+      "发布时间：2026-07-10 09:17",
+      "项目编号：N5133332026000054",
+      "中标金额：528,300.00元",
+      "采购人：色达县住房和城乡建设局",
+      "代理机构：中泰民顺建设集团有限公司",
+      "供应商：中维国际工程设计有限公司",
+      "联系方式：0836-2608331"
+    ],
+    "recommended_action": "无需跟进，项目已结束且发布时间超出最近1天范围。",
+    "link_hints": [
+      {
+        "url": "https://ggzyjy.sc.gov.cn/jyxx/002002/002002003/20260710/8a69cc799f3cc499019f45dd7cb67c35.html",
+        "type": "market_research",
+        "reason": "可能是其他交易公告或列表页链接，需进一步判断是否为有效商机。"
+      }
+    ],
+    "crawl_decision": "stop",
+    "reason": "页面为中标结果公告，但发布时间为2026-07-10，已超出最近1天范围，且项目已结束，不具备跟进价值。",
+    "structured_fields": {
+      "project_id": "N5133332026000054",
+      "customer_or_org": "色达县住房和城乡建设局",
+      "agency": "中泰民顺建设集团有限公司",
+      "budget_or_scale": "528,300.00元",
+      "publish_date": "2026-07-10",
+      "contact": "028-85559888",
+      "address": "色达县金马大道东路6号"
+    },
+    "budget_normalized": {
+      "raw": "528,300.00元",
+      "amount_yuan": 528300,
+      "unit": "元",
+      "display": "528300元"
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org",
+        "budget_or_scale",
+        "contact",
+        "address"
+      ],
+      "missing": [
+        "deadline"
+      ],
+      "ratio": 0.8
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "deadline"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  }
+}

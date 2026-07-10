@@ -1,0 +1,85 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/b/510000/0201/20260710/0051991c657a149b4881a6119ea0b02fa60e.html",
+  "title": "全国公共资源交易平台",
+  "fetched_at": "2026-07-10T03:13:03.607152+00:00",
+  "page_score": 0.9675,
+  "opportunity_score": 0.95,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.95,
+    "business_stage": "procurement_notice",
+    "summary": "开江县人民医院采购高端彩色超声多普勒诊断仪竞争性谈判公告，预算金额215万元，投标截止2026年7月17日09:30。",
+    "project_id": "N5117232026000036",
+    "customer_or_org": "开江县人民医院",
+    "agency": "开江县政府采购中心",
+    "supplier_or_winner": null,
+    "need": "采购高端彩色超声多普勒诊断仪",
+    "budget_or_scale": "2,150,000.00元",
+    "deadline": "2026年7月17日 09时30分",
+    "publish_date": "2026-07-10",
+    "contact": "0818-5282223（廖老师）",
+    "address": "四川省开江县龙池街72号（采购人地址）；四川省达州市开江县开江县橄榄路369号政务中心5楼（代理机构地址）",
+    "evidence": [
+      "发布时间：2026-07-10 09:11",
+      "项目编号：N5117232026000036",
+      "项目名称：采购高端彩色超声多普勒诊断仪",
+      "采购方式：竞争性谈判",
+      "预算金额：2,150,000.00元",
+      "投标截止时间：2026年07月17日 09时30分00秒",
+      "采购人名称：开江县人民医院",
+      "采购人联系方式：08188222173",
+      "代理机构名称：开江县政府采购中心",
+      "代理机构联系方式：0818-5282223"
+    ],
+    "recommended_action": "立即跟进，联系采购人或代理机构获取采购文件，准备投标材料，注意投标截止时间。",
+    "link_hints": [
+      "https://ggzyjy.sc.gov.cn/jyxx/002002/002002001/20260710/8a69c2fa9f3cc132019f44a5acfa6b7f.html",
+      "https://gpx.ccgp-sichuan.gov.cn/gpx-public-file?accessCode=eyJhbGciOiJNRDUiLCJ0eXBlIjoiMDQifQ==.d49a0aa764d0b76421ec706101419db4"
+    ],
+    "crawl_decision": "follow",
+    "reason": "页面为竞争性谈判采购公告详情页，发布日期为2026年7月10日，在最近1天内，包含完整项目信息、预算、截止时间、联系方式，属于高价值商机，应优先爬取并跟进。",
+    "project_name": "采购高端彩色超声多普勒诊断仪",
+    "structured_fields": {
+      "project_name": "采购高端彩色超声多普勒诊断仪",
+      "project_id": "N5117232026000036",
+      "customer_or_org": "开江县人民医院",
+      "agency": "开江县政府采购中心",
+      "budget_or_scale": "2,150,000.00元",
+      "deadline": "2026年07月17日 09时30分00秒",
+      "publish_date": "2026-07-10",
+      "contact": "0818-5282223",
+      "address": "四川省开江县龙池街72号"
+    },
+    "budget_normalized": {
+      "raw": "2,150,000.00元",
+      "amount_yuan": 2150000,
+      "unit": "元",
+      "display": "2150000元"
+    },
+    "deadline_normalized": {
+      "raw": "2026年7月17日 09时30分",
+      "normalized": "2026-07-17 09:30:00",
+      "precision": "datetime"
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "missing": [],
+      "ratio": 1.0
+    },
+    "needs_detail_followup": false,
+    "missing_fields": [],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  }
+}

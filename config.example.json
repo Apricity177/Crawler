@@ -1,0 +1,8 @@
+{
+  "seeds": [
+    "http://www.ccgp.gov.cn/"
+  ],
+  "recent_days": 1,
+  "max_depth": 2,
+  "output_dir": "data/ccgp_gov"
+}

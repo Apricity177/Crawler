@@ -1,0 +1,85 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/620000/0201/20260710/00629622c6d6ce08456a8370d9db49d5784b.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:13:57.515398+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "肃北县冰雪游乐园建设项目_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5032,
+  "page_score": 0.7047,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "award_result",
+    "summary": "页面为肃北县冰雪游乐园建设项目的交易公开页面，标题包含'交易公开'，内容显示'采购/资审公告'、'中标公告'等标签，但正文只有'暂无数据'，未提供具体招标公告或中标详情。发布日期为2026-07-10，超出最近1天范围。页面可能为项目概览或列表页。",
+    "project_id": "E6209000604031128001",
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": "肃北县冰雪游乐园建设项目",
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "标题含'交易公开'",
+      "内容含'暂无数据'"
+    ],
+    "recommended_action": "此页面为市场调研或列表页，建议不跟进，可降低优先级。",
+    "link_hints": [
+      "https://www.ggzy.gov.cn/information/deal/html/b/620000/0201/20260710/00629622c6d6ce08456a8370d9db49d5784b.html"
+    ],
+    "crawl_decision": "deprioritize",
+    "reason": "页面发布日期2026-07-10超出最近1天范围，且正文无具体商机信息（仅'暂无数据'），属于市场调研类型。",
+    "structured_fields": {
+      "project_id": "E6209000604031128001"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 政府采购 肃北县冰雪游乐园建设项目 采购项目编号：E6209000604031128001 信息来源： 酒泉市公共资源交易平台 采购/资审公告 中标公告 采购合同 更正事项 肃北县冰雪游乐园建设项目 2026-07-10 暂无数据 暂无数据 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/620000/0201/20260710/00629622c6d6ce08456a8370d9db49d5784b.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

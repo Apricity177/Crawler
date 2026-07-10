@@ -1,0 +1,102 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/610000/0202/20260710/006125ee7be210674f05897b855fd23fea5d.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:13:06.734427+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目采购结果公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5279,
+  "page_score": 0.7394,
+  "ai_analysis": {
+    "is_opportunity": true,
+    "opportunity_score": 0.6,
+    "business_stage": "award_result",
+    "summary": "该页面为采购结果公告，显示项目编号为2026YLZW-ZBDL-06，发布日为2026-07-10，但当前系统日期为2025年，发布日期明显超出1天范围，且页面内容仅为标题和索引链接，无正文详情。",
+    "project_id": "2026YLZW-ZBDL-06",
+    "customer_or_org": "榆阳区麻黄梁镇人民政府",
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": "麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目",
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "标题：麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目采购结果公告",
+      "项目编号：2026YLZW-ZBDL-06",
+      "发布日期：2026-07-10",
+      "采购人：榆阳区麻黄梁镇人民政府"
+    ],
+    "recommended_action": "发布日期超出1天范围，且页面仅为结果公告无详情，建议不跟进，可忽略。",
+    "link_hints": [
+      {
+        "url": "https://www.ggzy.gov.cn/information/deal/html/b/610000/0201/20260620/00613366e051b70647efb7d182cf8d82474b.html",
+        "type": "market_research",
+        "description": "采购/资审公告链接，可能包含商机但属于列表页或详情页待确认"
+      },
+      {
+        "url": "https://www.ggzy.gov.cn/information/deal/html/b/610000/0202/20260710/006125ee7be210674f05897b855fd23fea5d.html",
+        "type": "market_research",
+        "description": "当前页面自身的链接，无新信息"
+      },
+      {
+        "url": "https://www.ggzy.gov.cn/information",
+        "type": "market_research",
+        "description": "信息列表首页，需进一步分析"
+      }
+    ],
+    "crawl_decision": "stop",
+    "reason": "发布日期2026-07-10超出系统当前日期1天范围，且页面为无详细内容的结果公告，无跟进价值。",
+    "structured_fields": {
+      "project_id": "2026YLZW-ZBDL-06"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "customer_or_org"
+      ],
+      "missing": [
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.2
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 政府采购 麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目采购结果公告 采购项目编号：2026YLZW-ZBDL-06 信息来源： 全国公共资源交易平台（陕西省） 采购/资审公告 中标公告 采购合同 更正事项 榆阳区麻黄梁镇人民政府关于麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目竞争性磋商公告 2026-06-20 麻黄梁镇店坊村玉米小杂粮基地道路及排水建设项目采购结果公告 2026-07-10 暂无数据 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/610000/0201/20260620/00613366e051b70647efb7d182cf8d82474b.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/610000/0202/20260710/006125ee7be210674f05897b855fd23fea5d.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

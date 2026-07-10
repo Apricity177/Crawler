@@ -1,0 +1,75 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/b/130000/0105/20260710/0013a4248aef648748138e9fea4dd7c73212.html",
+  "depth": 2,
+  "fetched_at": "2026-07-10T03:13:29.007792+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "全国公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5596,
+  "page_score": 0.4714,
+  "ai_analysis": {
+    "is_opportunity": false,
+    "opportunity_score": 0.2,
+    "business_stage": "market_research",
+    "summary": "页面为项目详情页，但发布日期（2026-07-10）明显超出最近1天范围，且内容不完整（缺少预算金额、截止时间、联系方式等关键字段），无法作为可跟进的商机。",
+    "project_id": null,
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": null,
+    "budget_or_scale": "（最高限价） 评标办法 1 开标时间 开标地点 开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交",
+    "deadline": null,
+    "publish_date": "2026-07-10",
+    "contact": null,
+    "address": "开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交时间",
+    "evidence": [],
+    "recommended_action": "暂不跟进，发布日期间隔过远，商机已失效。",
+    "link_hints": [],
+    "crawl_decision": "deprioritize",
+    "reason": "发布日期超出最近1天范围，且关键信息缺失，不具备跟进价值。",
+    "structured_fields": {
+      "budget_or_scale": "（最高限价） 评标办法 1 开标时间 开标地点 开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交",
+      "address": "开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交时间"
+    },
+    "budget_normalized": {
+      "raw": "（最高限价） 评标办法 1 开标时间 开标地点 开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交",
+      "amount_yuan": 1,
+      "unit": "元",
+      "display": "1元"
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "2026-07-10",
+      "normalized": "2026-07-10",
+      "precision": "date"
+    },
+    "field_completeness": {
+      "present": [
+        "budget_or_scale",
+        "address"
+      ],
+      "missing": [
+        "customer_or_org",
+        "deadline",
+        "contact"
+      ],
+      "ratio": 0.4
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "deadline",
+      "contact"
+    ],
+    "is_final_opportunity": false,
+    "page_type": "information"
+  },
+  "text": "献县2026年子牙天路片区基础设施项目 递交时间：2026-07-10 08:56 信息来源： 河北 文件编号 投标资格 投标文件递交截止时间 投标有效期 90 投标文件递交方法 投标保证金缴纳方式 其它 投标保证金金额 0元 人民币 控制价（最高限价） 评标办法 1 开标时间 开标地点 开标方式 资格审查方式 答疑澄清时间 是否延期 延期后开标时间 延期后开标地点 对文件澄清与修改的主要内容 递交时间",
+  "links": []
+}

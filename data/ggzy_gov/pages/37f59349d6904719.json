@@ -1,0 +1,90 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/370000/9001/20260710/003714c25eaf0d85427d80ed76dfeec135f2.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:12:28.222946+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "新一代轻卡车型开发-内、外饰造型设计项目公开招标公告_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.5045,
+  "page_score": 0.3187,
+  "ai_analysis": {
+    "is_opportunity": false,
+    "opportunity_score": 0.0,
+    "business_stage": "tender_notice",
+    "summary": "页面标题为'新一代轻卡车型开发-内、外饰造型设计项目公开招标公告'，但正文内容仅包含导航信息和'暂无数据'，未提供任何具体的项目详情、预算、截止时间、联系方式等关键商机信息。",
+    "project_id": null,
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": null,
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": null,
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "正文内容：'暂无数据'",
+      "标题包含'公开招标公告'，但页面未呈现招标细节"
+    ],
+    "recommended_action": "由于页面未提供任何有效商机数据，无法进行跟进。建议检查页面是否因访问限制或数据加载失败导致内容缺失，或转向其他可靠来源获取该项目详情。",
+    "link_hints": [
+      {
+        "url": "https://www.ggzy.gov.cn/information/deal/html/b/370000/9001/20260710/003714c25eaf0d85427d80ed76dfeec135f2.html",
+        "type": "market_research",
+        "reason": "可能的交易公告页面，但当前内容为空，建议进一步验证"
+      }
+    ],
+    "crawl_decision": "stop",
+    "reason": "页面标题虽为招标公告，但正文无实质内容，无法提取任何商机字段，不符合商机挖掘条件。",
+    "project_name": "新一代轻卡车型开发-内、外饰造型设计项目公开",
+    "structured_fields": {
+      "project_name": "新一代轻卡车型开发-内、外饰造型设计项目公开"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": true,
+    "page_type": "project_detail"
+  },
+  "text": "首页 > 交易公开 > 其他 新一代轻卡车型开发-内、外饰造型设计项目公开招标公告 信息来源： 山东产权交易中心综合交易系统 交易公告 成交公示 新一代轻卡车型开发-内、外饰造型设计项目公开招标公告 2026-07-10 暂无数据",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/370000/9001/20260710/003714c25eaf0d85427d80ed76dfeec135f2.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}

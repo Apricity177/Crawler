@@ -1,0 +1,95 @@
+{
+  "url": "https://www.ggzy.gov.cn/information/deal/html/a/530000/0104/20260710/00535ed4b24cb1f4475f9d44db85878d3638.html",
+  "depth": 1,
+  "fetched_at": "2026-07-10T03:13:42.139195+00:00",
+  "status": 200,
+  "content_type": "text/plain;charset=UTF-8",
+  "title": "永胜县六德乡卫生院业务综合楼建设项目_交易公开_国家公共资源交易平台",
+  "description": "",
+  "extraction_strategy": "body",
+  "reward": 0.493,
+  "page_score": 0.3213,
+  "ai_analysis": {
+    "is_opportunity": false,
+    "opportunity_score": 0.0,
+    "business_stage": "market_research",
+    "summary": "该页面为永胜县六德乡卫生院业务综合楼建设项目的交易公开列表页，包含多个时间节点的子链接（如招标/资审公告、开标记录等），但当前页面本身并非具体项目详情页，且最新一条发布日期为2026-07-10，超出1天范围。",
+    "project_id": "GC530700202600095001",
+    "customer_or_org": null,
+    "agency": null,
+    "supplier_or_winner": null,
+    "need": null,
+    "budget_or_scale": null,
+    "deadline": null,
+    "publish_date": null,
+    "contact": null,
+    "address": null,
+    "evidence": [
+      "页面标题: 永胜县六德乡卫生院业务综合楼建设项目_交易公开_国家公共资源交易平台",
+      "URL: https://www.ggzy.gov.cn/information/deal/html/a/530000/0104/20260710/00535ed4b24cb1f4475f9d44db85878d3638.html",
+      "页面文字片段: 招标项目编号：GC530700202600095001；暂无数据；2026-07-10；2026-07-06；2026-06-15；2026-06-05；2026-06-04",
+      "包含链接: 子链接指向招标/资审公告、开标记录、交易结果公示等"
+    ],
+    "recommended_action": "不视为商机，建议作为market_research进入列表页分析，但无需立即跟进。可关注其子链接中的招标公告/中标结果等详情页，若发布日期在1天内则重新评估。",
+    "link_hints": [
+      "https://www.ggzy.gov.cn/information/deal/html/b/530000/0101/20260605/0053a37364cd45d94a00b9ccea0c4738d149.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/530000/0104/20260710/00535ed4b24cb1f4475f9d44db85878d3638.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/530000/0104/20260706/00533d22394243064519b1ed6d0bf331b029.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/530000/0105/20260615/0053d62b6d17b6994cd4ba2aa8258066cf09.html",
+      "https://www.ggzy.gov.cn/information/deal/html/b/530000/0105/20260604/005318044aeb534746b48d5f069238d032a2.html"
+    ],
+    "crawl_decision": "deprioritize",
+    "reason": "页面为列表/导航页，非具体项目详情页，且最新发布日期远超1天，不符合商机时效要求。",
+    "structured_fields": {
+      "project_id": "GC530700202600095001"
+    },
+    "budget_normalized": {
+      "raw": "",
+      "amount_yuan": null,
+      "unit": "元",
+      "display": ""
+    },
+    "deadline_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "publish_date_normalized": {
+      "raw": "",
+      "normalized": "",
+      "precision": ""
+    },
+    "field_completeness": {
+      "present": [],
+      "missing": [
+        "customer_or_org",
+        "budget_or_scale",
+        "deadline",
+        "contact",
+        "address"
+      ],
+      "ratio": 0.0
+    },
+    "needs_detail_followup": true,
+    "missing_fields": [
+      "customer_or_org",
+      "budget_or_scale",
+      "deadline",
+      "contact",
+      "address"
+    ],
+    "is_final_opportunity": false,
+    "page_type": "information"
+  },
+  "text": "首页 > 交易公开 > 工程建设 永胜县六德乡卫生院业务综合楼建设项目 招标项目编号：GC530700202600095001 信息来源： 丽江市公共资源交易中心 招标/资审公告 开标记录 交易结果公示 招标/资审文件澄清 永胜县六德乡卫生院业务综合楼建设项目 2026-06-05 暂无数据 永胜县六德乡卫生院业务综合楼建设项目 2026-07-10 永胜县六德乡卫生院业务综合楼建设项目 2026-07-06 更正公告1号.pdf 2026-06-15 （招标）永胜县六德乡卫生院业务综合楼建设项目.ZBJ 2026-06-04",
+  "links": [
+    "https://www.ggzy.gov.cn/information/deal/html/b/530000/0101/20260605/0053a37364cd45d94a00b9ccea0c4738d149.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/530000/0104/20260710/00535ed4b24cb1f4475f9d44db85878d3638.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/530000/0104/20260706/00533d22394243064519b1ed6d0bf331b029.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/530000/0105/20260615/0053d62b6d17b6994cd4ba2aa8258066cf09.html",
+    "https://www.ggzy.gov.cn/information/deal/html/b/530000/0105/20260604/005318044aeb534746b48d5f069238d032a2.html",
+    "https://www.ggzy.gov.cn/information",
+    "https://www.ggzy.gov.cn/component/header.html",
+    "https://www.ggzy.gov.cn/component/footer.html"
+  ]
+}
