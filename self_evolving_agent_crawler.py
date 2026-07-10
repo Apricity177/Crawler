@@ -2269,6 +2269,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Check AI API connectivity using .env and config, then exit.",
     )
+    parser.add_argument(
+        "--refresh-summaries",
+        action="store_true",
+        help="Regenerate summary files from existing pages without crawling.",
+    )
     return parser.parse_args(argv)
 
 
@@ -2315,6 +2320,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if check_ai_connection(config) else 1
 
     config = load_config(args.config)
+    if args.refresh_summaries:
+        crawler = SelfEvolvingCrawler(config)
+        crawler.write_opportunity_summaries()
+        return 0
+
     crawler = SelfEvolvingCrawler(config)
     crawler.run()
     return 0

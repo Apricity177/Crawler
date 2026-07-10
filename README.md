@@ -283,6 +283,23 @@ data/<任务名>/crawler_state.json
 
 因此中断后也能看到截至当前已抓页面的最新汇总结果。
 
+注意：这里指的是正常 `Ctrl+C` 中断。直接 `kill -9`、电脑关机或终端崩溃属于强制终止，进程可能来不及保存状态和汇总。
+
+如果只是想用已有 `pages/*.json` 重新生成汇总文件，不重新爬网页，可以运行：
+
+```bash
+python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --refresh-summaries
+```
+
+这个命令会更新：
+
+```text
+opportunities_structured.json
+opportunities_structured.txt
+opportunities_summary.csv
+opportunities_summary.jsonl
+```
+
 ## 8. 自适应阻塞处理
 
 爬虫内置了合规的自适应阻塞处理，不做验证码绕过、封禁规避或自动换 IP。
