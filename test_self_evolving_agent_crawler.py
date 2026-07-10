@@ -153,6 +153,36 @@ class PolicyTests(unittest.TestCase):
             self.assertEqual(len(restored.frontier), 1)
             self.assertEqual(restored.frontier[0].url, "https://www.example.com/detail")
 
+    def test_run_writes_summaries_and_pending_frontier_on_interrupt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = CrawlerConfig.from_dict(
+                {
+                    "seeds": ["https://www.example.com/"],
+                    "output_dir": tmpdir,
+                    "state_path": os.path.join(tmpdir, "state.json"),
+                    "obey_robots": False,
+                    "ai": {"enabled": False},
+                }
+            )
+            crawler = SelfEvolvingCrawler(config)
+            summary_called = False
+
+            def interrupting_fetch(_url: str) -> dict[str, object]:
+                raise KeyboardInterrupt()
+
+            def fake_summary() -> None:
+                nonlocal summary_called
+                summary_called = True
+
+            crawler.fetch = interrupting_fetch  # type: ignore[method-assign]
+            crawler.write_opportunity_summaries = fake_summary  # type: ignore[method-assign]
+
+            crawler.run()
+
+            self.assertTrue(summary_called)
+            self.assertEqual(len(crawler.memory.pending_frontier), 1)
+            self.assertEqual(crawler.memory.pending_frontier[0]["url"], "https://www.example.com/")
+
     def test_detect_blocked_reason(self) -> None:
         config = CrawlerConfig.from_dict({"seeds": ["https://example.com/"], "ai": {"enabled": False}})
         crawler = SelfEvolvingCrawler(config)
