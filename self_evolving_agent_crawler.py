@@ -114,7 +114,17 @@ IGNORED_LINK_TITLES = {
     "关闭",
 }
 
-SITE_ADAPTERS = {"auto", "ggzy_api", "html_search", "json_api", "html_index"}
+SITE_ADAPTERS = {
+    "auto",
+    "ggzy_api",
+    "cebpubservice_search",
+    "cfcpn_api",
+    "china_zbycg_search",
+    "html_search",
+    "json_api",
+    "html_index",
+    "skip",
+}
 
 
 def utc_now() -> str:
@@ -188,13 +198,30 @@ def load_env_file(path: str = ".env", override: bool = False) -> dict[str, str]:
     return loaded
 
 
+def strip_input_url(url: str) -> str:
+    value = str(url).strip().strip('"').strip("'")
+    markdown_match = re.fullmatch(r"\[[^\]]+\]\(([^)]+)\)", value)
+    if markdown_match:
+        value = markdown_match.group(1).strip()
+    return value
+
+
+def normalize_input_url(url: str) -> str:
+    value = strip_input_url(url)
+    if value and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", value):
+        value = "http://" + value
+    return value
+
+
 def canonical_url(url: str, base_url: str | None = None) -> str | None:
-    url = str(url).strip()
+    url = strip_input_url(str(url))
     if not url:
         return None
     try:
         if base_url:
             url = urllib.parse.urljoin(base_url, url)
+        else:
+            url = normalize_input_url(url)
         parsed = urllib.parse.urlparse(url)
     except ValueError:
         return None
@@ -226,6 +253,31 @@ def looks_like_html(body: bytes) -> bool:
     return prefix.startswith(b"<!doctype html") or prefix.startswith(b"<html") or b"<html" in prefix[:300]
 
 
+def decode_response_body(body: bytes, encoding: str | None) -> str:
+    candidates = [encoding, "utf-8", "gb18030", "gbk"]
+    seen: set[str] = set()
+    best = ""
+    best_bad_count: int | None = None
+    for candidate in candidates:
+        if not candidate:
+            continue
+        normalized = candidate.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        try:
+            text = body.decode(candidate, errors="replace")
+        except LookupError:
+            continue
+        bad_count = text.count("\ufffd")
+        if best_bad_count is None or bad_count < best_bad_count:
+            best = text
+            best_bad_count = bad_count
+        if bad_count == 0:
+            return text
+    return best or body.decode("utf-8", errors="replace")
+
+
 def looks_blocked(text: str) -> bool:
     markers = [
         "访问过于频繁",
@@ -234,17 +286,24 @@ def looks_blocked(text: str) -> bool:
         "请求被阻断",
         "您无法继续访问",
         "抱歉，您的请求被阻断了",
-        "验证码",
-        "安全验证",
-        "人机验证",
         "403 forbidden",
         "access denied",
         "too many requests",
         "you have been blocked",
         "you are unable to access",
+        "aliyun_waf",
+        "acw_sc__v2",
     ]
     lowered = text.lower()
     return any(marker.lower() in lowered for marker in markers)
+
+
+def looks_login_required(text: str, url: str = "") -> bool:
+    lowered = text.lower()
+    if any(marker in lowered for marker in ["login", "register", "signin", "passport"]):
+        if any(marker in lowered for marker in ["请输入密码", "用户登录", "会员登录", "供应商登录", "用户注册"]):
+            return True
+    return any(marker in url.lower() for marker in ["/login", "login.", "#/login", "/register", "registration"])
 
 
 def looks_blocked_error(exc: Exception) -> bool:
@@ -347,8 +406,9 @@ class SiteConfig:
     result_link_keywords: list[str] = field(default_factory=lambda: list(DEFAULT_RESULT_LINK_KEYWORDS))
     max_pages_per_keyword: int | None = None
     json_records_path: str = ""
-    record_url_fields: list[str] = field(default_factory=lambda: ["url", "href", "detailUrl", "detail_url", "link"])
+    record_url_fields: list[str] = field(default_factory=lambda: ["detail_url", "url", "href", "detailUrl", "link"])
     record_title_fields: list[str] = field(default_factory=lambda: ["title", "name", "projectName", "project_name"])
+    skip_reason: str = ""
 
     @classmethod
     def from_seed(cls, seed: str) -> "SiteConfig":
@@ -391,6 +451,51 @@ class SiteConfig:
         if self.adapter == "auto":
             if host_matches(parsed.netloc, "ggzy.gov.cn"):
                 self.adapter = "ggzy_api"
+            elif host_matches(parsed.netloc, "cebpubservice.com"):
+                self.adapter = "cebpubservice_search"
+                self.base_url = "https://bulletin.cebpubservice.com/"
+                self.allowed_domains = ["bulletin.cebpubservice.com", "ctbpsp.com", "www.cebpubservice.com"]
+                self.record_url_fields = ["detail_url", "url", "href"]
+                self.record_title_fields = ["title", "noticeTitle", "name"]
+            elif host_matches(parsed.netloc, "cfcpn.com"):
+                if parsed.netloc.lower().startswith("ec."):
+                    self.adapter = "skip"
+                    self.skip_reason = "requires_login_or_waf"
+                else:
+                    self.adapter = "cfcpn_api"
+                    self.base_url = "http://www.cfcpn.com/jcw/"
+                    self.allowed_domains = ["www.cfcpn.com", "cfcpn.com"]
+                    self.record_url_fields = ["detail_url", "url"]
+                    self.record_title_fields = ["noticeTitle", "title"]
+            elif host_matches(parsed.netloc, "china-zbycg.com"):
+                self.adapter = "china_zbycg_search"
+                self.search_url_template = "http://www.china-zbycg.com/agent_list/?title={keyword}"
+                self.allowed_domains = ["www.china-zbycg.com", "china-zbycg.com"]
+                self.include_url_patterns = [r"/agent_\d+\.html"]
+                self.record_url_fields = ["url", "href"]
+                self.record_title_fields = ["title", "name"]
+            elif any(
+                host_matches(parsed.netloc, domain)
+                for domain in [
+                    "prechina.net",
+                    "szygcgpt.com",
+                    "cgo.tpre.cn",
+                    "bidizhaobiao.com",
+                    "chinabidding.cn",
+                    "trade.szggzy.com",
+                ]
+            ) or re.search(r"login|register|registration", self.base_url, re.IGNORECASE):
+                self.adapter = "skip"
+                self.skip_reason = "requires_login_or_waf"
+            elif host_matches(parsed.netloc, "qianlima.com"):
+                self.adapter = "html_index"
+                self.allowed_domains = ["qianlima.com", "www.qianlima.com"]
+                self.include_url_patterns = [r"/zb/", r"/zhaobiao/", r"/detail/", r"/notice/"]
+                self.exclude_url_patterns = [r"/about/", r"/common/", r"/user/", r"/login", r"/reg"]
+            elif host_matches(parsed.netloc, "365trade.com.cn"):
+                self.adapter = "html_index"
+                self.allowed_domains = ["365trade.com.cn", "www.365trade.com.cn"]
+                self.exclude_url_patterns = [r"/login", r"/register", r"/user"]
             elif host_matches(parsed.netloc, "ccgp.gov.cn"):
                 self.adapter = "html_search"
                 self.search_url_template = (
@@ -513,12 +618,18 @@ class Config:
                 raise ValueError("page_range must satisfy 1 <= start_page <= end_page")
             config.search_page_start = start_page
             config.search_pages_per_keyword = end_page - start_page + 1
-        config.seeds = [url for seed in config.seeds if (url := canonical_url(seed))]
+        config.seeds = [url for seed in config.seeds if (url := canonical_url(normalize_input_url(seed)))]
         config.sites = (
             [SiteConfig.from_dict(item) for item in raw_sites]
             if raw_sites
             else [SiteConfig.from_seed(seed) for seed in config.seeds]
         )
+        unique_sites: dict[tuple[str, str, str], SiteConfig] = {}
+        for site in config.sites:
+            key = (site.name, site.base_url, site.adapter)
+            if key not in unique_sites:
+                unique_sites[key] = site
+        config.sites = list(unique_sites.values())
         if not config.sites:
             raise ValueError("config.urls must contain at least one valid URL")
         if not config.seeds:
@@ -706,6 +817,8 @@ class AITenderMiner:
         self.opener = self._build_opener()
         self.warmed_bases: set[str] = set()
         self.blocked_sites: set[str] = set()
+        self.skipped_sites: set[str] = set()
+        self.site_issues: dict[str, dict[str, Any]] = {}
         self.last_request_at = 0.0
 
     def _build_opener(self) -> urllib.request.OpenerDirector:
@@ -738,10 +851,18 @@ class AITenderMiner:
         try:
             candidates = self.search_candidates()
             print(f"[search] candidates={len(candidates)}")
-            if not candidates and self.blocked_sites:
-                sites = ",".join(sorted(self.blocked_sites))
-                self.write_run_status("site_unavailable", {"blocked_sites": sorted(self.blocked_sites)})
-                print(f"[done] opportunities=0 reason=site_unavailable sites={sites}; existing outputs were not overwritten")
+            if not candidates and (self.blocked_sites or self.skipped_sites or self.site_issues):
+                sites = ",".join(sorted(self.blocked_sites or self.skipped_sites))
+                status = "blocked_or_rate_limited" if self.blocked_sites else "no_candidates"
+                self.write_run_status(
+                    status,
+                    {
+                        "blocked_sites": sorted(self.blocked_sites),
+                        "skipped_sites": sorted(self.skipped_sites),
+                        "site_issues": self.site_issues,
+                    },
+                )
+                print(f"[done] opportunities=0 reason={status} sites={sites or 'none'}; existing outputs were not overwritten")
                 return
             seen: set[str] = set()
 
@@ -767,12 +888,28 @@ class AITenderMiner:
         except KeyboardInterrupt:
             print("\n[stop] interrupted by user; writing current outputs...", file=sys.stderr)
             if not records:
-                self.write_run_status("interrupted", {"opportunities": 0, "blocked_sites": sorted(self.blocked_sites)})
+                self.write_run_status(
+                    "interrupted",
+                    {
+                        "opportunities": 0,
+                        "blocked_sites": sorted(self.blocked_sites),
+                        "skipped_sites": sorted(self.skipped_sites),
+                        "site_issues": self.site_issues,
+                    },
+                )
                 print(f"[done] opportunities=0 reason=interrupted output_dir={self.config.output_dir}; existing outputs were not overwritten")
                 return
 
         self.write_outputs(records)
-        self.write_run_status("ok", {"opportunities": len(records), "blocked_sites": sorted(self.blocked_sites)})
+        self.write_run_status(
+            "ok",
+            {
+                "opportunities": len(records),
+                "blocked_sites": sorted(self.blocked_sites),
+                "skipped_sites": sorted(self.skipped_sites),
+                "site_issues": self.site_issues,
+            },
+        )
         print(f"[done] opportunities={len(records)} output_dir={self.config.output_dir}")
 
     def preflight_ai(self) -> bool:
@@ -802,6 +939,8 @@ class AITenderMiner:
         seen: set[str] = set()
         for site in self.config.sites:
             for keyword in self.config.search_keywords:
+                if site.name in self.skipped_sites:
+                    break
                 if site.name in self.blocked_sites:
                     print(f"[warn] site={site.name} appears blocked/rate-limited; stop searching this site for this run", file=sys.stderr)
                     break
@@ -813,16 +952,34 @@ class AITenderMiner:
                     print(f"[search] site={site.name} keyword={keyword} page={page} records={len(records)}")
                     if not records:
                         break
-                    for record_url, title in self.urls_from_records(records, site):
+                    for record_url, title, snippet in self.urls_from_records(records, site):
                         if record_url in seen:
                             continue
-                        candidates.append({"url": record_url, "title": title, "keyword": keyword, "site": site.name})
+                        candidates.append(
+                            {
+                                "url": record_url,
+                                "title": title,
+                                "keyword": keyword,
+                                "site": site.name,
+                                "snippet": snippet,
+                            }
+                        )
                         seen.add(record_url)
         return candidates
 
     def search_site_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
+        if site.adapter == "skip":
+            self.mark_site_issue(site, site.skip_reason or "skipped", "site requires login, registration, WAF challenge, or authorized access")
+            self.skipped_sites.add(site.name)
+            return []
         if site.adapter == "ggzy_api":
             return self.fetch_ggzy_search_records(site, keyword, page)
+        if site.adapter == "cebpubservice_search":
+            return self.fetch_cebpubservice_records(site, keyword, page)
+        if site.adapter == "cfcpn_api":
+            return self.fetch_cfcpn_records(site, keyword, page)
+        if site.adapter == "china_zbycg_search":
+            return self.fetch_html_search_records(site, keyword, page)
         if site.adapter == "html_search":
             return self.fetch_html_search_records(site, keyword, page)
         if site.adapter == "json_api":
@@ -833,6 +990,15 @@ class AITenderMiner:
             return self.fetch_html_index_records(site, keyword)
         print(f"[warn] unsupported adapter={site.adapter} site={site.name}", file=sys.stderr)
         return []
+
+    def mark_site_issue(self, site: SiteConfig, status: str, reason: str) -> None:
+        if site.name not in self.site_issues:
+            self.site_issues[site.name] = {
+                "base_url": site.base_url,
+                "adapter": site.adapter,
+                "status": status,
+                "reason": reason,
+            }
 
     def warm_ggzy(self, base: str) -> None:
         base = base.rstrip("/")
@@ -925,6 +1091,181 @@ class AITenderMiner:
         records = data.get("records", []) if isinstance(data, dict) else []
         return [item for item in records if isinstance(item, dict)]
 
+    def fetch_cebpubservice_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
+        categories = [
+            ("88", "bulletin.html", "招标公告"),
+            ("89", "change.html", "更正公告"),
+            ("90", "result.html", "中标结果公示"),
+            ("91", "candidate.html", "中标候选人公示"),
+            ("92", "qualify.html", "资格预审公告"),
+        ]
+        dates = date_range_for_recent_days(self.config.recent_days)
+        double_keyword = urllib.parse.quote(urllib.parse.quote(keyword))
+        records: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for category_id, path, category_name in categories:
+            url = (
+                f"https://bulletin.cebpubservice.com/xxfbcmses/search/{path}"
+                f"?searchDate={dates['start_date']}&dates={self.config.recent_days}"
+                f"&categoryId={category_id}&industryName=&area=&status=&publishMedia=&sourceInfo="
+                f"&showStatus=1&word={double_keyword}&page={page}"
+            )
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": self.config.user_agent,
+                    "Accept": "text/html,application/xhtml+xml,*/*",
+                    "Referer": "https://bulletin.cebpubservice.com/",
+                },
+            )
+            try:
+                with self.open_with_retries(request, label=f"{site.name} search keyword={keyword} page={page}") as response:
+                    body = response.read(self.config.max_response_bytes)
+                    html = decode_response_body(body, response.headers.get_content_charset())
+            except Exception as exc:
+                if looks_blocked_error(exc) or looks_site_unavailable_error(exc):
+                    self.blocked_sites.add(site.name)
+                    self.mark_site_issue(site, "blocked_or_rate_limited", str(exc))
+                    return []
+                print(f"[warn] {site.name} search failed after retries: keyword={keyword} page={page} ({exc})", file=sys.stderr)
+                continue
+            if looks_blocked(html):
+                self.blocked_sites.add(site.name)
+                self.mark_site_issue(site, "blocked_or_rate_limited", "search page returned anti-bot or rate-limit page")
+                return []
+            for match in re.finditer(
+                r"(<a\b[^>]*href=[\"']javascript:urlOpen\('([^']+)'\)[\"'][^>]*>)(.*?)</a>",
+                html,
+                re.S,
+            ):
+                tag_html = match.group(1)
+                uuid = match.group(2).strip()
+                title_match = re.search(r"title\s*=\s*([\"'])(.*?)\1", tag_html, re.S)
+                title = clean_text(title_match.group(2) if title_match else match.group(3))
+                if not uuid or uuid in seen:
+                    continue
+                row_start = html.rfind("<tr", 0, match.start())
+                row_end = html.find("</tr>", match.end())
+                row_html = html[row_start : row_end if row_end > row_start else match.end() + 500]
+                date_match = re.search(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", row_html)
+                publish_date = date_match.group(1) if date_match else ""
+                if publish_date and not within_recent_days(publish_date, self.config.recent_days):
+                    continue
+                area_match = re.search(r"【([^】]+)】", row_html)
+                detail_url = f"https://ctbpsp.com/#/bulletinDetail?uuid={uuid}&inpvalue=&dataSource=0&tenderAgency="
+                records.append(
+                    {
+                        "detail_url": detail_url,
+                        "title": title,
+                        "publish_date": publish_date,
+                        "area": area_match.group(1) if area_match else "",
+                        "category": category_name,
+                        "snippet": clean_text(f"{title} {category_name} {publish_date}"),
+                    }
+                )
+                seen.add(uuid)
+        return records
+
+    def fetch_cfcpn_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        search_endpoint = urllib.parse.urljoin(site.base_url, "noticeinfo/noticeInfo/indexNoticeGKList")
+        search_form = {
+            "pageNo": str(max(page - 1, 0)),
+            "pageSize": "20",
+            "purchaseName": keyword,
+        }
+        search_request = urllib.request.Request(
+            search_endpoint,
+            data=urllib.parse.urlencode(search_form).encode("utf-8"),
+            headers={
+                "User-Agent": self.config.user_agent,
+                "Accept": "application/json,text/plain,*/*",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Referer": site.base_url,
+            },
+            method="POST",
+        )
+        try:
+            with self.open_with_retries(search_request, label=f"{site.name} search keyword={keyword} page={page}") as response:
+                payload = json.loads(decode_response_body(response.read(self.config.max_response_bytes), response.headers.get_content_charset()))
+            for item in self.records_from_json_payload(site, payload):
+                self.add_cfcpn_record(records, seen, item, keyword, item.get("noticeType") or item.get("column") or "1")
+        except Exception as exc:
+            if looks_blocked_error(exc) or looks_site_unavailable_error(exc):
+                self.blocked_sites.add(site.name)
+                self.mark_site_issue(site, "blocked_or_rate_limited", str(exc))
+                return []
+            print(f"[warn] {site.name} api keyword search failed: keyword={keyword} page={page} ({exc})", file=sys.stderr)
+
+        if records or page > 1:
+            return records
+        for notice_type in ["1", "2", "3", "4"]:
+            endpoint = urllib.parse.urljoin(site.base_url, "noticeinfo/noticeInfo/indexLatestNoticeList")
+            request = urllib.request.Request(
+                endpoint,
+                data=urllib.parse.urlencode({"noticeType": notice_type}).encode("utf-8"),
+                headers={
+                    "User-Agent": self.config.user_agent,
+                    "Accept": "application/json,text/plain,*/*",
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "Referer": site.base_url,
+                },
+                method="POST",
+            )
+            try:
+                with self.open_with_retries(request, label=f"{site.name} search keyword={keyword} page={page}") as response:
+                    payload = json.loads(decode_response_body(response.read(self.config.max_response_bytes), response.headers.get_content_charset()))
+            except Exception as exc:
+                if looks_blocked_error(exc) or looks_site_unavailable_error(exc):
+                    self.blocked_sites.add(site.name)
+                    self.mark_site_issue(site, "blocked_or_rate_limited", str(exc))
+                    return []
+                print(f"[warn] {site.name} api search failed: keyword={keyword} page={page} ({exc})", file=sys.stderr)
+                continue
+            if not isinstance(payload, list):
+                continue
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                self.add_cfcpn_record(records, seen, item, keyword, notice_type)
+        return records
+
+    def add_cfcpn_record(
+        self,
+        records: list[dict[str, Any]],
+        seen: set[str],
+        item: dict[str, Any],
+        keyword: str,
+        notice_type: Any,
+    ) -> None:
+        title = clean_text(
+            str(
+                item.get("noticeTitle")
+                or item.get("purchaseName")
+                or item.get("projectName")
+                or item.get("title")
+                or ""
+            )
+        )
+        if not topic_relevant(title, "") and keyword.lower() not in title.lower():
+            return
+        item_id = str(item.get("id") or item.get("noticeId") or item.get("purchaseId") or item.get("projectId") or "")
+        if not item_id or item_id in seen:
+            return
+        notice_type_value = str(item.get("noticeType") or notice_type or "1")
+        detail_url = (
+            "http://www.cfcpn.com/jcw/sys/index/goUrl?"
+            f"url=modules/sys/login/detail&column={urllib.parse.quote(notice_type_value)}"
+            f"&searchVal={urllib.parse.quote(item_id)}"
+        )
+        row = dict(item)
+        row["detail_url"] = detail_url
+        row["title"] = title
+        row["snippet"] = clean_text(f"{title} {item.get('publishTime') or item.get('publishDate') or ''}")
+        records.append(row)
+        seen.add(item_id)
+
     def build_search_request(self, site: SiteConfig, keyword: str, page: int, accept: str) -> urllib.request.Request:
         if site.search_url_template:
             url = render_template(site.search_url_template, keyword, page, self.config.recent_days)
@@ -966,9 +1307,10 @@ class AITenderMiner:
             return []
         if "html" not in content_type.lower() and not looks_like_html(body):
             return []
-        html = body.decode(encoding, errors="replace")
+        html = decode_response_body(body, encoding)
         if looks_blocked(html):
             self.blocked_sites.add(site.name)
+            self.mark_site_issue(site, "blocked_or_rate_limited", "search page returned anti-bot or rate-limit page")
             print(f"[warn] {site.name} search appears blocked/rate-limited; skipping page={page}", file=sys.stderr)
             return []
         return self.records_from_html_links(site, html, response.geturl(), keyword)
@@ -992,18 +1334,21 @@ class AITenderMiner:
             return []
         if "html" not in content_type.lower() and not looks_like_html(body):
             return []
-        html = body.decode(encoding, errors="replace")
+        html = decode_response_body(body, encoding)
         if looks_blocked(html):
             self.blocked_sites.add(site.name)
+            self.mark_site_issue(site, "blocked_or_rate_limited", "index page returned anti-bot or rate-limit page")
             print(f"[warn] {site.name} index appears blocked/rate-limited; skipping", file=sys.stderr)
             return []
+        if looks_login_required(html, response.geturl()):
+            self.mark_site_issue(site, "login_required", "index appears to require login or registration for useful results")
         return self.records_from_html_links(site, html, response.geturl(), keyword)
 
     def fetch_json_search_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
         request = self.build_search_request(site, keyword, page, "application/json,text/plain,*/*")
         try:
             with self.open_with_retries(request, label=f"{site.name} search keyword={keyword} page={page}") as response:
-                payload = json.loads(response.read(self.config.max_response_bytes).decode("utf-8", errors="replace"))
+                payload = json.loads(decode_response_body(response.read(self.config.max_response_bytes), response.headers.get_content_charset()))
         except Exception as exc:
             print(f"[warn] {site.name} json search failed after retries: keyword={keyword} page={page} ({exc})", file=sys.stderr)
             return []
@@ -1075,15 +1420,24 @@ class AITenderMiner:
             return "05"
         return "06"
 
-    def urls_from_records(self, records: list[dict[str, Any]], site: SiteConfig) -> list[tuple[str, str]]:
-        results: list[tuple[str, str]] = []
+    def urls_from_records(self, records: list[dict[str, Any]], site: SiteConfig) -> list[tuple[str, str, str]]:
+        results: list[tuple[str, str, str]] = []
         seen: set[str] = set()
         for record in records:
             title = clean_text(str(first_path_value(record, site.record_title_fields) or ""))
+            snippet = clean_text(
+                str(
+                    record.get("snippet")
+                    or record.get("publish_date")
+                    or record.get("publishTime")
+                    or record.get("category")
+                    or ""
+                )
+            )
             raw = first_path_value(record, site.record_url_fields)
             url = canonical_url(str(raw or ""), site.base_url)
             if url and url not in seen:
-                results.append((url, title))
+                results.append((url, title, snippet))
                 seen.add(url)
         return results
 
@@ -1104,6 +1458,17 @@ class AITenderMiner:
             }
             if best is None or detail_score(page) > detail_score(best):
                 best = page
+        if best is not None:
+            return best
+        fallback_text = clean_text("\n".join([candidate.get("title", ""), candidate.get("snippet", "")]))
+        if fallback_text:
+            return {
+                "url": candidate["url"],
+                "source_url": candidate["url"],
+                "title": candidate.get("title", ""),
+                "text": fallback_text,
+                "links": [],
+            }
         return best
 
     def fetch_html(self, url: str) -> dict[str, Any] | None:
@@ -1118,7 +1483,7 @@ class AITenderMiner:
         if "html" not in content_type.lower() and not looks_like_html(body):
             return None
         encoding = response.headers.get_content_charset() or "utf-8"
-        html = body.decode(encoding, errors="replace")
+        html = decode_response_body(body, encoding)
         if looks_blocked(html):
             print(f"[warn] fetch appears blocked/rate-limited: {url}", file=sys.stderr)
             return None
