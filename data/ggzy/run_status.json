@@ -1,6 +1,9 @@
 {
-  "saved_at": "2026-07-14T01:40:18.323086+00:00",
-  "status": "interrupted",
-  "opportunities": 0,
-  "blocked_sites": []
+  "saved_at": "2026-07-17T02:32:45.836184+00:00",
+  "status": "ok",
+  "opportunities": 153,
+  "blocked_sites": [],
+  "skipped_sites": [],
+  "site_issues": {},
+  "login_status": {}
 }

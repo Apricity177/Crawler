@@ -129,6 +129,39 @@ python3 self_evolving_agent_crawler.py --env-file .env --config config.example.j
 
 默认不需要配置关键词。程序内置了 AI、人工智能、大模型、生成式 AI、AIGC、智能体等关键词。
 
+## 2.1 登录站点凭据
+
+如果需要挖掘部分需要账号密码的网站，可以把凭据放在本地 Excel 文件：
+
+```text
+招标网站汇总及账号密码-提供给AI.xlsx
+```
+
+程序会自动读取包含 `网址`、`账号`、`密码` 表头的工作表，并按站点域名匹配账号。这个文件已经被 `.gitignore` 忽略，不要提交到 GitHub。
+
+也可以运行时显式指定凭据文件：
+
+```bash
+python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --credentials-file 招标网站汇总及账号密码-提供给AI.xlsx
+```
+
+也可以把单个站点账号放进本地 `.env`，例如金采网：
+
+```bash
+JINCAIWANG_USERNAME=你的账号
+JINCAIWANG_PASSWORD=你的密码
+```
+
+`.env` 已经被 `.gitignore` 忽略，不要把账号密码写进代码或提交到 GitHub。
+
+登录机制只处理正常的账号密码表单登录。程序不会用 AI 识别或绕过验证码、短信验证码、滑块、人机验证、WAF。遇到普通图片验证码时，可以使用人工输入模式：
+
+```bash
+python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --manual-verification
+```
+
+程序会把验证码图片保存到输出目录的 `auth/` 文件夹，并在终端提示输入验证码。短信验证码、滑块、人机验证或 WAF 仍会在 `run_status.json` 里记录为 `verification_required`。
+
 ## 3. 运行
 
 ```bash

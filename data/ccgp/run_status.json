@@ -1,8 +1,18 @@
 {
-  "saved_at": "2026-07-14T02:43:24.243950+00:00",
+  "saved_at": "2026-07-14T13:42:38.756097+00:00",
   "status": "ok",
-  "opportunities": 72,
-  "blocked_sites": [],
+  "opportunities": 328,
+  "blocked_sites": [
+    "ccgp_gov_cn"
+  ],
   "skipped_sites": [],
-  "site_issues": {}
+  "site_issues": {
+    "ccgp_gov_cn": {
+      "base_url": "http://www.ccgp.gov.cn/",
+      "adapter": "html_search",
+      "status": "blocked_or_rate_limited",
+      "reason": "search page returned anti-bot or rate-limit page"
+    }
+  },
+  "login_status": {}
 }

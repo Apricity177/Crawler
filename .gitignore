@@ -1,5 +1,7 @@
 .env
 .env.*
 !.env.example
+招标网站汇总及账号密码-提供给AI.xlsx
+*账号密码*.xlsx
 __pycache__/
 *.pyc
