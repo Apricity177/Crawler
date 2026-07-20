@@ -1,4 +1,5 @@
 .env
+.env.deepseek
 .env.*
 !.env.example
 招标网站汇总及账号密码-提供给AI.xlsx
