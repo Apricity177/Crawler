@@ -108,6 +108,22 @@ python3 self_evolving_agent_crawler.py --env-file .env --config config.example.j
 
 程序不会绕过短信验证、滑块验证码、人机验证或 WAF。需要登录的网站可把账号密码放在本机 Excel `招标网站汇总及账号密码-提供给AI.xlsx`（表头：`网址`、`账号`、`密码`）；该文件也已被 Git 忽略。
 
+## Docker 部署
+
+镜像不包含 `.env`、账号密码和历史数据。创建本机数据目录后运行：
+
+```bash
+docker run -d --name vzoom-crawler --restart unless-stopped \
+  -p 8000:8000 \
+  --env-file .env \
+  -e DAILY_AT=08:30 \
+  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/config.example.json:/app/config.example.json:ro" \
+  test-harbor.vzoom.com/vzoom/vzoom-crawler:latest
+```
+
+启动后，同事仍通过 `http://运行机器的局域网IP:8000` 访问。查看日志使用 `docker logs -f vzoom-crawler`；更新镜像后执行 `docker pull`，再删除并以同一条 `docker run` 命令重新启动容器。
+
 ## 数据文件
 
 ```text

@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+data
+__pycache__
+*.pyc
+*.sqlite*
+招标网站汇总及账号密码-提供给AI.xlsx
+*账号密码*.xlsx
