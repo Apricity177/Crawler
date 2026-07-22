@@ -6,3 +6,6 @@
 *账号密码*.xlsx
 __pycache__/
 *.pyc
+data/opportunities.db
+data/opportunities.db-shm
+data/opportunities.db-wal

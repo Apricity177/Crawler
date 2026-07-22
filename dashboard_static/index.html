@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AI 商机挖掘智能体历史商机看板">
+  <title>商机雷达 · AI 商机挖掘</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="商机雷达首页">
+      <span class="brand-mark">商</span>
+      <span><strong>商机雷达</strong><small>AI OPPORTUNITY INTELLIGENCE</small></span>
+    </a>
+    <div class="status"><span></span> 数据库已连接</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">每日更新 · 历史可查</p>
+        <h1>发现值得跟进的<br><em>下一条商机</em></h1>
+        <p class="intro">聚合多渠道招采信息，快速筛选、搜索并回溯每一条历史机会。</p>
+      </div>
+      <div class="metrics" aria-label="商机统计">
+        <article><span>今日新增</span><strong id="todayCount">—</strong><small>条新商机</small></article>
+        <article><span>历史累计</span><strong id="totalCount">—</strong><small>条已归档</small></article>
+        <article><span>高业务匹配</span><strong id="highCount">—</strong><small>条优先跟进</small></article>
+        <article><span>覆盖渠道</span><strong id="channelCount">—</strong><small>个信息来源</small></article>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="section-heading">
+        <div><p class="eyebrow">OPPORTUNITY FEED</p><h2>商机列表</h2></div>
+        <a class="export" id="exportLink" href="/api/export.csv">导出筛选结果 <span>↗</span></a>
+      </div>
+
+      <form class="filters" id="filters">
+        <label class="search-field">
+          <span class="sr-only">搜索商机</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="query" name="q" type="search" placeholder="搜索项目、单位、编号、产品……" autocomplete="off">
+        </label>
+        <label><span class="sr-only">网址</span><select id="channel" name="channel"><option value="">全部网址</option></select></label>
+        <label><span class="sr-only">与公司业务匹配度</span><select id="relevance" name="relevance"><option value="">全部业务匹配度</option><option>高</option><option>中</option><option>低</option></select></label>
+        <label><span class="sr-only">招标单位行业</span><select id="industry" name="industry"><option value="">全部招标单位行业</option></select></label>
+        <label><span class="sr-only">时间范围</span><select id="period" name="period"><option value="today">今天采集</option><option value="30" selected>近 30 天</option></select></label>
+        <button type="submit">查找商机</button>
+      </form>
+
+      <div class="result-meta"><span id="resultLabel">正在读取商机…</span><button id="clearFilters" type="button">清除筛选</button></div>
+      <div class="cards" id="cards" aria-live="polite"></div>
+      <div class="empty" id="empty" hidden><div>⌁</div><h3>没有找到匹配商机</h3><p>换一个关键词、渠道或时间范围试试。</p></div>
+      <nav class="pagination" id="pagination" aria-label="分页"></nav>
+    </section>
+  </main>
+
+  <footer><span>商机雷达</span><p>数据来自智能体采集结果，请以来源网站公告为准。</p></footer>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

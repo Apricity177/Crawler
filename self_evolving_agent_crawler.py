@@ -70,7 +70,7 @@ OUTPUT_CSV_FIELDS = [
     "截止日期",
     "采购内容",
     "源网址",
-    "我司业务相关度",
+    "与公司业务匹配度",
     "匹配产品",
     "匹配理由",
 ]
@@ -3227,7 +3227,7 @@ class AITenderMiner:
             "项目编号": project_id,
             "采购内容": procurement_scope,
             "源网址": page["url"],
-            "我司业务相关度": company_relevance,
+            "与公司业务匹配度": company_relevance,
             "匹配产品": matched_products or "无明确匹配产品",
             "匹配理由": product_match_reason,
         }
@@ -3239,8 +3239,15 @@ class AITenderMiner:
         source = str(record.get("源网址") or record.get("项目编号") or record.get("项目名称"))
         digest = hashlib.sha1(source.encode("utf-8")).hexdigest()[:16]
         path = os.path.join(self.config.output_dir, "opportunities", f"{digest}.json")
+        saved_at = utc_now()
         with open(path, "w", encoding="utf-8") as handle:
-            json.dump({"saved_at": utc_now(), "opportunity": record}, handle, ensure_ascii=False, indent=2)
+            json.dump({"saved_at": saved_at, "opportunity": record}, handle, ensure_ascii=False, indent=2)
+        try:
+            from opportunity_dashboard import persist_opportunity
+
+            persist_opportunity(record, output_dir=self.config.output_dir, saved_at=saved_at)
+        except Exception as exc:
+            print(f"[warn] dashboard history write failed: {exc}", file=sys.stderr)
         print(f"[opportunity] saved={path}")
         return path
 
@@ -3896,6 +3903,7 @@ def clean_org_name(value: Any) -> str:
         return ""
     org = html.unescape(org)
     org = re.sub(r"<[^>]+>", "", org)
+    org = re.sub(r"信息[：:\s]*名称[：:\s]*", "", org)
     org = re.split(r"(?:采购代理机构|代理机构|联系人|联系方式|联系电话|电话|地址|邮箱|项目名称|项目编号|预算金额|最高限价)[：:\s]", org)[0]
     org = org.strip(" ：:，,。；;、（）()[]【】\"'")
     org = re.sub(r"^(?:名称|单位|为|是|：|:)\s*", "", org)
@@ -4222,7 +4230,7 @@ def format_csv_record(record: dict[str, Any]) -> dict[str, str]:
         "截止日期": ["截止日期", "截止时间", "deadline"],
         "采购内容": ["采购内容", "采购内容/范围", "采购范围", "procurement_scope"],
         "源网址": ["源网址", "来源链接", "url"],
-        "我司业务相关度": ["我司业务相关度", "company_relevance"],
+        "与公司业务匹配度": ["与公司业务匹配度", "我司业务相关度", "company_relevance"],
         "匹配产品": ["匹配产品", "matched_products"],
         "匹配理由": ["匹配理由", "product_match_reason"],
     }

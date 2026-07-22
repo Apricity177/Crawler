@@ -1,0 +1,58 @@
+{
+  "saved_at": "2026-07-22T06:05:06.867948+00:00",
+  "status": "ok",
+  "date_range": {
+    "start_date": "2026-07-16",
+    "end_date": "2026-07-22"
+  },
+  "opportunities": 329,
+  "blocked_sites": [
+    "chinabidding_cn"
+  ],
+  "skipped_sites": [
+    "bidizhaobiao_com",
+    "bm_prechina_net_9600"
+  ],
+  "site_issues": {
+    "cfcpn_com": {
+      "base_url": "http://www.cfcpn.com/jcw/",
+      "adapter": "cfcpn_api",
+      "status": "keyword_search_forbidden",
+      "reason": "keyword=大模型 page=2 returned HTTP 403; continuing with other keywords"
+    },
+    "chinabidding_cn": {
+      "base_url": "https://www.chinabidding.cn/",
+      "adapter": "skip",
+      "status": "waf_challenge",
+      "reason": "site returned a JavaScript/WAF challenge before normal login or search; automated crawling is not attempted"
+    },
+    "bm_prechina_net_9600": {
+      "base_url": "http://bm.prechina.net:9600/home?p=registration",
+      "adapter": "skip",
+      "status": "site_unavailable_or_bad_entry_url",
+      "reason": "configured entry URL is unavailable or is not a public opportunity search/list entry"
+    },
+    "bidizhaobiao_com": {
+      "base_url": "http://www.bidizhaobiao.com/",
+      "adapter": "skip",
+      "status": "login_form_not_found",
+      "reason": "no ordinary username/password form was found; site may use SPA login or a custom API"
+    }
+  },
+  "login_status": {
+    "chinabidding_cn": {
+      "status": "waf_challenge",
+      "reason": "账号密码还没进入登录流程，站点先返回 WAF/JS 挑战；不建议绕过。"
+    },
+    "bm_prechina_net_9600": {
+      "status": "site_unavailable_or_bad_entry_url",
+      "reason": "当前入口不可用或不是公告搜索入口，需要提供可访问的公告/采购列表页。"
+    },
+    "bidizhaobiao_com": {
+      "status": "login_form_not_found",
+      "account": "1*********0",
+      "credential_site": "付费平台：比地招标网",
+      "reason": "no ordinary username/password form was found; site may use SPA login or a custom API"
+    }
+  }
+}

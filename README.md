@@ -1,116 +1,39 @@
-# AI 招标采购信息挖掘脚本
+# AI 招采商机挖掘与内网看板
 
+本工具每天从配置的招采网站检索最近 1 天公告，用 AI 筛选 AI 相关商机、抽取字段并匹配公司业务。结果会在内网网页中展示，方便同事共同查看。
 
-默认流程已经简化：
+## 部署：按这四步操作
 
-1. 用内置关键词搜索招采网站。
-2. 从搜索结果里拿详情页链接。
-3. 抓取详情页正文。
-4. 调用模型 API 判断是否真的是 AI 相关招标采购信息。
-5. 由模型 API 抽取项目名称、采购单位、金额、时间、联系人、联系方式、地址、项目编号和来源链接。
-6. 输出结构化结果。
+> 请选择一台能在工作日持续开机、并接入公司内网的电脑作为运行机器。无需购买服务器；访问机器需要和这台机器处于同一公司网络或公司 VPN。
 
-默认运行时，如果 `.env` 里的模型 API 不可用，脚本不会用规则结果冒充 AI 结果。只有在配置里显式设置 `"ai": {"enabled": false}` 时，才会走规则兜底。
+### 1. 配置模型密钥
 
-项目现在支持多站点商机挖掘：用户只需要在配置里填写招采网站网址，程序会自动选择合适的搜索和抽取方式。候选详情页抓取、AI 判断、字段抽取和结果输出共用同一套流程。
-
-内置搜索关键词：
-
-```text
-AI、人工智能、大模型、大语言模型、生成式AI、AIGC、智能体、智能问答、智能客服、知识图谱、机器学习、深度学习、算法模型、模型训练、自然语言处理、NLP、计算机视觉、图像识别、语音识别、智能分析
-```
-
-## 1. 配置 API
-
-默认 Sophon 配置可以继续放在 `.env`：
+在项目目录执行：
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env`：
+编辑本机 `.env`，至少填写：
 
 ```dotenv
-SOPHON_API_KEY=你的 key
+SOPHON_API_KEY=你的密钥
 SOPHON_API_BASE_URL=https://sophon-api.vzoom.com/ai/v1
 SOPHON_MODEL=qwen-core
-SOPHON_VERIFY_SSL=true
-SOPHON_MAX_RETRIES=2
-SOPHON_RETRY_DELAY_SECONDS=1.5
-SOPHON_MAX_FAILURES=3
-SOPHON_TEMPERATURE=0.75
-SOPHON_MAX_TOKENS=1800
 SOPHON_TRUST_ENV=false
 ```
 
-如果开 VPN 后 Sophon API 不能用，优先保留：
-
-```dotenv
-SOPHON_TRUST_ENV=false
-```
-
-如果 Sophon API 必须走本地代理，再显式加：
-
-```dotenv
-SOPHON_PROXY_URL=http://127.0.0.1:7890
-```
-
-检查 API 是否可用：
+验证模型可用：
 
 ```bash
 python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --check-ai
 ```
 
-看到 `[ai-check] ok` 就可以运行。
+看到 `[ai-check] ok` 后再继续。`.env` 和 `.env.deepseek` 都只保留在本机，已被 Git 忽略，禁止提交或发送给他人。
 
-代码会优先读取通用 `AI_*` 配置；如果没有 `AI_*`，再读取 `SOPHON_*` 配置。因此公司环境可以继续使用 `.env` 里的 Sophon 配置，也可以用 `AI_API_KEY`、`AI_API_BASE_URL`、`AI_MODEL` 接入其他 OpenAI-compatible 模型服务。
+### 2. 配置要监控的网站
 
-默认运行也会先做一次 AI 预检。如果模型接口不可用，脚本会直接停止，不会继续搜索和抓取页面。这样可以避免出现“搜索到了很多候选，但因为 AI 不通全部跳过”的假进度。
-
-## 2. 配置任务
-
-`config.example.json` 面向日常使用，只保留必须参数：
-
-```json
-{
-  "urls": [
-    "https://www.ggzy.gov.cn/"
-  ],
-  "days": 7,
-  "pages": [
-    1,
-    3
-  ],
-  "output_dir": "data/ggzy"
-}
-```
-
-字段含义：
-
-- `urls`：要挖掘的招标采购网站网址，可以填一个或多个。
-- `days`：时间范围。例如 `7` 表示只看最近 7 天的信息。
-- `pages`：页码范围。例如 `[1, 3]` 表示每个关键词搜索第 1 到第 3 页。
-- `output_dir`：输出目录。不同任务建议换不同目录，避免结果混在一起。
-
-`[warn] ... _ssl.c:993: The handshake operation timed out` 通常是目标站点或当前网络在 HTTPS 握手阶段超时，不代表程序逻辑失败。脚本会自动重试；如果偶尔出现，可以先不用管。如果连续很多关键词都超时，再换网络或稍后重跑。
-
-一般只需要改：
-
-```json
-{
-  "urls": [
-    "https://你要挖掘的招采网站/"
-  ],
-  "days": 30,
-  "pages": [
-    1,
-    5
-  ],
-  "output_dir": "data/my_ai_tenders"
-}
-```
-
-多网站任务也只是多填几个网址：
+编辑 [config.example.json](config.example.json)：
 
 ```json
 {
@@ -118,109 +41,80 @@ python3 self_evolving_agent_crawler.py --env-file .env --config config.example.j
     "https://www.ggzy.gov.cn/",
     "https://example.com/"
   ],
-  "days": 7,
-  "pages": [
-    1,
-    3
-  ],
-  "output_dir": "data/ai_tenders"
+  "days": 1,
+  "pages": 3,
+  "output_dir": "data/other_sites"
 }
 ```
 
-默认不需要配置关键词。程序内置了 AI、人工智能、大模型、生成式 AI、AIGC、智能体等关键词。
+- `urls`：要监控的招采网站；可填写多个。
+- `days`：保持 `1`，表示每日只查最近 1 天的新公告。
+- `pages`：每个内置关键词查询的页数范围；数字越大，耗时和模型调用量越高。
+- `output_dir`：结果保存位置，日常无需修改。
 
-## 2.1 登录站点凭据
+程序内置 AI、人工智能、大模型、AIGC、智能体、智能问答等关键词，无需另配。
 
-如果需要挖掘部分需要账号密码的网站，可以把凭据放在本地 Excel 文件：
+### 3. 启动内网网页和每日自动更新
 
-```text
-招标网站汇总及账号密码-提供给AI.xlsx
-```
-
-程序会自动读取包含 `网址`、`账号`、`密码` 表头的工作表，并按站点域名匹配账号。这个文件已经被 `.gitignore` 忽略，不要提交到 GitHub。
-
-也可以运行时显式指定凭据文件：
+在项目目录运行下面这条命令，并保持终端和电脑开机：
 
 ```bash
-python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --credentials-file 招标网站汇总及账号密码-提供给AI.xlsx
+python3 opportunity_dashboard.py --host 0.0.0.0 --port 8000 --daily-at 08:30
 ```
 
-也可以把单个站点账号放进本地 `.env`，例如金采网：
+含义：网页服务使用 8000 端口；每天北京时间 08:30 自动运行一次爬虫。
 
-```bash
-JINCAIWANG_USERNAME=你的账号
-JINCAIWANG_PASSWORD=你的密码
-```
-
-`.env` 已经被 `.gitignore` 忽略，不要把账号密码写进代码或提交到 GitHub。
-
-登录机制只处理正常的账号密码表单登录。程序不会用 AI 识别或绕过验证码、短信验证码、滑块、人机验证、WAF。遇到普通图片验证码时，可以使用人工输入模式：
-
-```bash
-python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --manual-verification
-```
-
-程序会把验证码图片保存到输出目录的 `auth/` 文件夹，并在终端提示输入验证码。短信验证码、滑块、人机验证或 WAF 仍会在 `run_status.json` 里记录为 `verification_required`。
-
-## 3. 运行
+首次部署时，如想立即采集一次，可另开一个终端运行：
 
 ```bash
 python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json
 ```
 
-也可以直接运行，默认读取 `.env` 和 `config.example.json`：
+### 4. 访问地址
+
+在运行机器的终端执行：
 
 ```bash
-python3 self_evolving_agent_crawler.py
+ipconfig getifaddr en0
 ```
 
-运行时会看到类似日志：
+假设输出为 `192.168.1.23`，应访问：
 
 ```text
-[search] site=ggzy keyword=人工智能 page=1 records=10
-[search] candidates=23
-[fetch] 1/23 https://www.ggzy.gov.cn/...
-[hit] 某人工智能平台采购项目
-[done] opportunities=3 output_dir=data/ggzy
+http://192.168.1.23:8000
 ```
 
-## 4. 输出
 
-主要看这四类文件：
+## 网页内容与筛选规则
+
+- 以列表形式展示商机，按采集时间排序。
+- 可按网址、与公司业务匹配度、招标单位行业筛选，也可搜索项目、单位、编号和采购内容。
+- 网址筛选项完整显示 `config.example.json` 中的所有网站；尚未采集到商机的网站显示 `0`。
+- 仅保留最近 30 天：网页、CSV、SQLite 历史库和逐条商机 JSON 都会自动清除 30 天前的数据。
+- 可导出当前筛选结果为 CSV；公告内容以来源网站为准。
+
+## 常用维护命令
+
+```bash
+# 只导入已有 JSON 到历史库，不启动网页
+python3 opportunity_dashboard.py --import-only
+
+# 改用 8080 端口
+python3 opportunity_dashboard.py --host 0.0.0.0 --port 8080 --daily-at 08:30
+
+# 普通图片验证码时，保存图片并在终端手工输入验证码
+python3 self_evolving_agent_crawler.py --env-file .env --config config.example.json --manual-verification
+```
+
+程序不会绕过短信验证、滑块验证码、人机验证或 WAF。需要登录的网站可把账号密码放在本机 Excel `招标网站汇总及账号密码-提供给AI.xlsx`（表头：`网址`、`账号`、`密码`）；该文件也已被 Git 忽略。
+
+## 数据文件
 
 ```text
-data/ggzy/opportunities/*.json
-data/ggzy/opportunities_structured.json
-data/ggzy/opportunities_structured.txt
-data/ggzy/opportunities_summary.csv
+data/other_sites/opportunities/*.json       每条商机的原始结构化记录
+data/other_sites/opportunities_summary.csv  本次采集摘要
+data/opportunities.db                       网页查询使用的历史库
+data/other_sites/run_status.json            最近一次任务状态
 ```
 
-脚本现在是边挖掘边写入：每命中一个详情页，就会立刻写入一份 `opportunities/*.json`，并刷新 `opportunities_structured.json`、`opportunities_structured.txt` 和 `opportunities_summary.csv`。不用等全部跑完再看结果。
-
-字段尽量保持简洁：
-
-```json
-{
-  "项目名称": "某人工智能平台采购项目",
-  "采购单位": "某单位",
-  "代理机构": "某招标代理有限公司",
-  "金额元": 1200000,
-  "截止时间": "2026-07-20 09:30:00",
-  "发布日期": "2026-07-13",
-  "联系人": "张三",
-  "联系方式": "010-12345678",
-  "地址": "北京市...",
-  "项目编号": "AI-2026-001",
-  "来源链接": "https://example.com/..."
-}
-```
-
-## 5. 代码结构
-
-当前代码已经删掉旧的 frontier 爬虫、自进化策略权重、robots 缓存、跨站递归等复杂逻辑，保留清晰的 AI 招标采购挖掘主流程：
-
-```text
-读取配置 -> 按站点搜索关键词 -> 抓详情页 -> AI 判断和抽取 -> 增量写入结果
-```
-
-新增站点时，优先只在 `urls` 里加网址。确实遇到某个网站搜索入口很特殊时，再在代码里补自动适配规则，不把这些实现细节暴露给普通用户。
+不要将当前无登录保护的 8000 端口直接暴露到公网。如需让公司外部人员访问，应使用公司 VPN 或在具备 HTTPS 与登录保护的公司服务器上部署。

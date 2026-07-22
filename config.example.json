@@ -12,11 +12,11 @@
     "https://ggzy.guizhou.gov.cn/",
     "http://www.ygcgfw.com/"
   ],
-  "days": 7,
+  "days": 1,
   "pages": [
     1,
     10
   ],
-  "output_dir": "data/other_sites",
+  "output_dir": "data/7.22",
   "safety_max_pages": 600
 }
