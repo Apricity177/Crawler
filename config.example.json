@@ -1,6 +1,8 @@
 {
   "urls": [
+    "http://www.ccgp.gov.cn/",
     "http://www.ggzy.gov.cn/",
+    "http://www.qianlima.com/",
     "http://www.cfcpn.com/plist/caigou",
     "https://www.chinabidding.cn/",
     "http://bm.prechina.net:9600/home?p=registration",
@@ -10,13 +12,19 @@
     "https://cgo.tpre.cn/#/home",
     "http://www.bidizhaobiao.com/",
     "https://ggzy.guizhou.gov.cn/",
-    "http://www.ygcgfw.com/"
+    "http://www.ygcgfw.com/",
+    "http://www.cebpubservice.com/"
+
   ],
-  "days": 1,
+  "days": 7,
   "pages": [
     1,
     10
   ],
-  "output_dir": "data/7.22",
-  "safety_max_pages": 600
+  "request_timeout": 15,
+  "request_retries": 1,
+  "request_retry_delay_seconds": 0.5,
+  "request_interval_seconds": 0.1,
+  "output_dir": "data/7.28",
+  "safety_max_pages": 3000
 }

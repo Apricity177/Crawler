@@ -29,6 +29,13 @@ DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "opportunities.db"
 STATIC_DIR = ROOT / "dashboard_static"
 CHINA_TZ = timezone(timedelta(hours=8))
 
+CHANNEL_ALIASES = {
+    "cebpubservice.com": "www.cebpubservice.com",
+    "bulletin.cebpubservice.com": "www.cebpubservice.com",
+    "ctbpsp.com": "www.cebpubservice.com",
+    "www.ctbpsp.com": "www.cebpubservice.com",
+}
+
 
 def _text(record: dict[str, Any], *names: str) -> str:
     for name in names:
@@ -36,6 +43,15 @@ def _text(record: dict[str, Any], *names: str) -> str:
         if value is not None and str(value).strip():
             return str(value).strip()
     return ""
+
+
+def _canonical_channel(host: str) -> str:
+    value = str(host or "").strip().lower()
+    return CHANNEL_ALIASES.get(value, value)
+
+
+def _source_channel(source_url: str) -> str:
+    return _canonical_channel(urlparse(source_url).hostname or "未知渠道")
 
 
 def _local_date(value: str) -> str:
@@ -48,15 +64,27 @@ def _local_date(value: str) -> str:
         return value[:10] if len(value) >= 10 else datetime.now(CHINA_TZ).date().isoformat()
 
 
+def _business_match_explanation(reason: str, unmatched_reason: str) -> str:
+    reason = reason.strip()
+    unmatched_reason = unmatched_reason.strip()
+    if reason and unmatched_reason:
+        if unmatched_reason in reason:
+            return reason
+        return f"匹配结论：{reason}；分产品说明：{unmatched_reason}"
+    return reason or unmatched_reason
+
+
 def normalize_record(
     record: dict[str, Any], saved_at: str = "", source_task: str = ""
 ) -> dict[str, str]:
     source_url = _text(record, "源网址", "来源链接", "url")
-    host = (urlparse(source_url).hostname or "未知渠道").lower()
+    host = _source_channel(source_url)
     collected_at = saved_at or datetime.now(timezone.utc).isoformat()
     identity = source_url or "|".join(
         [_text(record, "项目编号"), _text(record, "项目名称"), _text(record, "招标单位", "采购单位")]
     )
+    reason = _text(record, "匹配理由", "业务匹配说明", "product_match_reason")
+    unmatched_reason = _text(record, "不匹配依据", "unmatched_reason", "unmatched_reasons")
     return {
         "id": hashlib.sha1(identity.encode("utf-8")).hexdigest(),
         "title": _text(record, "项目名称", "project_name"),
@@ -70,7 +98,9 @@ def normalize_record(
         "source_task": source_task,
         "relevance": _text(record, "与公司业务匹配度", "我司业务相关度", "company_relevance"),
         "products": _text(record, "匹配产品", "matched_products"),
-        "reason": _text(record, "匹配理由", "product_match_reason"),
+        "reason": _business_match_explanation(reason, unmatched_reason),
+        "unmatched_reason": "",
+        "consistency_issues": _text(record, "匹配一致性问题", "consistency_issues"),
         "collected_at": collected_at,
         "collected_date": _local_date(collected_at),
         "raw_json": json.dumps(record, ensure_ascii=False, sort_keys=True),
@@ -109,6 +139,8 @@ class OpportunityStore:
                     relevance TEXT NOT NULL DEFAULT '',
                     products TEXT NOT NULL DEFAULT '',
                     reason TEXT NOT NULL DEFAULT '',
+                    unmatched_reason TEXT NOT NULL DEFAULT '',
+                    consistency_issues TEXT NOT NULL DEFAULT '',
                     collected_at TEXT NOT NULL,
                     collected_date TEXT NOT NULL,
                     raw_json TEXT NOT NULL
@@ -121,6 +153,12 @@ class OpportunityStore:
                     ON opportunities(relevance);
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(opportunities)")}
+            for name in ["unmatched_reason", "consistency_issues"]:
+                if name not in columns:
+                    connection.execute(
+                        f"ALTER TABLE opportunities ADD COLUMN {name} TEXT NOT NULL DEFAULT ''"
+                    )
 
     def upsert(self, record: dict[str, Any], saved_at: str = "", source_task: str = "") -> None:
         item = normalize_record(record, saved_at=saved_at, source_task=source_task)
@@ -159,17 +197,45 @@ class OpportunityStore:
 
     def import_directory(self, data_dir: str | os.PathLike[str]) -> tuple[int, int]:
         imported = failed = 0
-        for path in sorted(Path(data_dir).glob("*/opportunities/*.json")):
+        root = Path(data_dir)
+        for task_dir in sorted(path for path in root.iterdir() if path.is_dir()):
+            individual_paths = sorted((task_dir / "opportunities").glob("*.json"))
+            if individual_paths:
+                for path in individual_paths:
+                    try:
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        record = payload.get("opportunity", payload)
+                        if not isinstance(record, dict):
+                            raise ValueError("opportunity must be an object")
+                        self.upsert(record, str(payload.get("saved_at") or ""), task_dir.name)
+                        imported += 1
+                    except (OSError, ValueError, json.JSONDecodeError) as exc:
+                        failed += 1
+                        print(f"[dashboard] skip invalid file={path}: {exc}", file=sys.stderr)
+                continue
+
+            # Older crawler runs only produced one aggregate JSON file. Import
+            # it as a fallback so those opportunities remain visible.
+            aggregate_path = task_dir / "opportunities_structured.json"
+            if not aggregate_path.exists():
+                continue
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-                record = payload.get("opportunity", payload)
-                if not isinstance(record, dict):
-                    raise ValueError("opportunity must be an object")
-                self.upsert(record, str(payload.get("saved_at") or ""), path.parent.parent.name)
-                imported += 1
+                payload = json.loads(aggregate_path.read_text(encoding="utf-8"))
+                if not isinstance(payload, list):
+                    raise ValueError("aggregate opportunities must be a list")
+                saved_at = datetime.fromtimestamp(
+                    aggregate_path.stat().st_mtime,
+                    tz=timezone.utc,
+                ).isoformat()
+                for record in payload:
+                    if not isinstance(record, dict):
+                        failed += 1
+                        continue
+                    self.upsert(record, saved_at, task_dir.name)
+                    imported += 1
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 failed += 1
-                print(f"[dashboard] skip invalid file={path}: {exc}", file=sys.stderr)
+                print(f"[dashboard] skip invalid file={aggregate_path}: {exc}", file=sys.stderr)
         self.prune_expired()
         return imported, failed
 
@@ -182,9 +248,10 @@ class OpportunityStore:
             terms = [term for term in query.split() if term]
             for term in terms:
                 clauses.append(
-                    "(title LIKE ? OR organization LIKE ? OR project_id LIKE ? OR content LIKE ? OR products LIKE ?)"
+                    "(title LIKE ? OR organization LIKE ? OR project_id LIKE ? OR content LIKE ? "
+                    "OR products LIKE ? OR reason LIKE ? OR unmatched_reason LIKE ? OR consistency_issues LIKE ?)"
                 )
-                values.extend([f"%{term}%"] * 5)
+                values.extend([f"%{term}%"] * 8)
         for key, column in (("channel", "channel"), ("relevance", "relevance"), ("industry", "industry"), ("task", "source_task")):
             if params.get(key):
                 clauses.append(f"{column} = ?")
@@ -212,6 +279,8 @@ class OpportunityStore:
             rows = [dict(row) for row in connection.execute(sql, query_values).fetchall()]
         for row in rows:
             row.pop("raw_json", None)
+            row["reason"] = _business_match_explanation(row["reason"], row["unmatched_reason"])
+            row["unmatched_reason"] = ""
         return {"items": rows, "total": total, "page": page, "page_size": page_size}
 
     def metadata(self, configured_sources: list[str] | None = None) -> dict[str, Any]:
@@ -221,11 +290,13 @@ class OpportunityStore:
             today_count = int(
                 connection.execute("SELECT COUNT(*) FROM opportunities WHERE collected_date = ?", (today,)).fetchone()[0]
             )
+            channel_counts: dict[str, int] = {}
+            for row in connection.execute("SELECT channel, COUNT(*) FROM opportunities GROUP BY channel"):
+                channel = _canonical_channel(row[0])
+                channel_counts[channel] = channel_counts.get(channel, 0) + int(row[1])
             channels = [
-                {"name": row[0], "count": row[1]}
-                for row in connection.execute(
-                    "SELECT channel, COUNT(*) FROM opportunities GROUP BY channel ORDER BY COUNT(*) DESC, channel"
-                )
+                {"name": name, "count": count}
+                for name, count in sorted(channel_counts.items(), key=lambda item: (-item[1], item[0]))
             ]
             tasks = [
                 {"name": row[0], "count": row[1]}
@@ -242,7 +313,14 @@ class OpportunityStore:
                 )
             ]
         counts = {item["name"]: item["count"] for item in channels}
-        sources = [{"url": url, "channel": (urlparse(url).hostname or "").lower(), "count": counts.get((urlparse(url).hostname or "").lower(), 0)} for url in (configured_sources or [])]
+        sources = [
+            {
+                "url": url,
+                "channel": _source_channel(url),
+                "count": counts.get(_source_channel(url), 0),
+            }
+            for url in (configured_sources or [])
+        ]
         return {"total": total, "today": today_count, "high_relevance": high, "channels": channels, "configured_sources": sources, "industries": industries, "tasks": tasks}
 
 
@@ -298,7 +376,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def send_csv(self, rows: list[dict[str, Any]]) -> None:
         output = io.StringIO()
-        fields = ["采集日期", "渠道", "招标单位", "项目名称", "项目编号", "截止日期", "采购内容", "与公司业务匹配度", "匹配产品", "源网址"]
+        fields = [
+            "采集日期",
+            "渠道",
+            "招标单位",
+            "项目名称",
+            "项目编号",
+            "截止日期",
+            "采购内容",
+            "与公司业务匹配度",
+            "匹配产品",
+            "业务匹配说明",
+            "匹配一致性问题",
+            "源网址",
+        ]
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
         for row in rows:
@@ -307,6 +398,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "采集日期": row["collected_date"], "渠道": row["channel"], "招标单位": row["organization"],
                     "项目名称": row["title"], "项目编号": row["project_id"], "截止日期": row["deadline"],
                     "采购内容": row["content"], "与公司业务匹配度": row["relevance"], "匹配产品": row["products"],
+                    "业务匹配说明": _business_match_explanation(row["reason"], row["unmatched_reason"]),
+                    "匹配一致性问题": row["consistency_issues"],
                     "源网址": row["source_url"],
                 }
             )

@@ -51,10 +51,12 @@ function card(item, index) {
   const deadline = item.deadline ? `截止 ${escapeHtml(item.deadline.slice(0, 16))}` : "截止时间待确认";
   const tags = [item.relevance ? `<span class="tag ${item.relevance === "高" ? "high" : ""}">业务匹配度：${escapeHtml(item.relevance)}</span>` : "",
     item.industry ? `<span class="tag">${escapeHtml(item.industry)}</span>` : ""].join("");
+  const matchDetails = [item.reason ? `<p><b>业务匹配说明：</b>${escapeHtml(item.reason)}</p>` : "",
+    item.consistency_issues ? `<p class="consistency-warning"><b>一致性检查：</b>${escapeHtml(item.consistency_issues)}</p>` : ""].join("");
   const link = item.source_url ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener noreferrer">查看原文 ↗</a>` : "<span>暂无链接</span>";
   return `<article class="opportunity-row" style="animation-delay:${Math.min(index * 35, 250)}ms">
     <div class="row-source"><span class="channel">${escapeHtml(item.channel)}</span><span class="date">${escapeHtml(item.collected_date)} 收录</span></div>
-    <div class="row-main"><h3>${escapeHtml(item.title || "未命名项目")}</h3><p class="org">${escapeHtml(item.organization || "招标单位待确认")}${item.project_id ? ` · ${escapeHtml(item.project_id)}` : ""}</p><p class="description">${escapeHtml(content)}</p></div>
+    <div class="row-main"><h3>${escapeHtml(item.title || "未命名项目")}</h3><p class="org">${escapeHtml(item.organization || "招标单位待确认")}${item.project_id ? ` · ${escapeHtml(item.project_id)}` : ""}</p><p class="description">${escapeHtml(content)}</p>${matchDetails ? `<details class="match-details"><summary>查看产品匹配说明</summary>${matchDetails}</details>` : ""}</div>
     <div class="row-tags">${tags}</div><div class="row-action"><span>${deadline}</span>${link}</div></article>`;
 }
 

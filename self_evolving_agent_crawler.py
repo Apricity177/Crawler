@@ -13,6 +13,7 @@ import csv
 import hashlib
 import html
 import http.cookiejar
+import io
 import json
 import os
 import re
@@ -53,12 +54,19 @@ AI_KEYWORDS = [
     "智能分析",
 ]
 
-FINAL_STAGES = {
+OPPORTUNITY_STAGES = {
     "tender_notice",
     "procurement_notice",
+}
+
+KNOWN_BUSINESS_STAGES = {
+    *OPPORTUNITY_STAGES,
     "award_candidate",
     "award_result",
     "contract_notice",
+    "correction_notice",
+    "cancelled_notice",
+    "not_opportunity",
 }
 
 MISSING_CONFIRMATION = "前往官网确认"
@@ -72,10 +80,31 @@ OUTPUT_CSV_FIELDS = [
     "源网址",
     "与公司业务匹配度",
     "匹配产品",
-    "匹配理由",
+    "业务匹配说明",
+    "匹配一致性问题",
 ]
 
 COMPANY_PRODUCTS = {"VZOOM企业级AI智能体", "VZOOM财税大模型", "VZOOM AI中台"}
+
+PROMPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts")
+
+COMPANY_PRODUCT_CATALOG = {
+    "VZOOM企业级AI智能体": (
+        "以 Agent × Skill 双引擎驱动的企业级AI智能体，覆盖信贷、投资、合规、产品研发、"
+        "财务、税务等18大核心业务场景，集成50个综合Agent与243个原子Skill，支持需求拆解、"
+        "Agent与Skill组合及工作流编排，帮助企业快速构建专属AI应用。"
+    ),
+    "VZOOM财税大模型": (
+        "联合财经院校与专业会计机构打造的财税金融垂类大模型，具备陈述性、程序性和分析性"
+        "三大知识框架与体系化财税知识库，通过微调支持财税细分场景辅助决策，包括发票模式"
+        "异常识别、供应链关联关系挖掘等。"
+    ),
+    "VZOOM AI中台": (
+        "企业AI落地的算力与智能协同底座，包含应用层、数据层和算力层，通过分布式推理加速、"
+        "异构算力弹性伸缩、统一数据治理和多智能体协同调度，提供高可靠、高可用、高并发的"
+        "企业级AI服务。"
+    ),
+}
 
 INDUSTRY_CATEGORIES = [
     "金融",
@@ -103,7 +132,6 @@ ORG_FIELD_CANDIDATES = [
     "zbRName",
     "tenderer",
     "tendererName",
-    "bidder",
     "companyname",
     "companyName",
     "orgName",
@@ -114,7 +142,6 @@ ORG_FIELD_CANDIDATES = [
     "project_owner",
     "projectUnit",
     "project_unit",
-    "agencyName",
     "publishOrg",
     "publishOrgName",
     "docSourceName",
@@ -137,6 +164,15 @@ SKIP_EXTENSIONS = {
     ".xls",
     ".xlsx",
     ".zip",
+}
+
+ATTACHMENT_EXTENSIONS = {
+    ".csv",
+    ".docx",
+    ".pdf",
+    ".txt",
+    ".xls",
+    ".xlsx",
 }
 
 DEFAULT_RESULT_LINK_KEYWORDS = [
@@ -213,6 +249,18 @@ SITE_ADAPTERS = {
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def load_prompt_file(name: str) -> str:
+    path = os.path.join(PROMPT_DIR, name)
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            prompt = handle.read().strip()
+    except OSError as exc:
+        raise RuntimeError(f"prompt file is unavailable: {path} ({exc})") from exc
+    if not prompt:
+        raise RuntimeError(f"prompt file is empty: {path}")
+    return prompt
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -444,12 +492,89 @@ def canonical_url(url: str, base_url: str | None = None) -> str | None:
     path = parsed.path or "/"
     if os.path.splitext(path.lower())[1] in SKIP_EXTENSIONS:
         return None
-    return urllib.parse.urlunparse(parsed._replace(fragment="", path=path))
+    fragment = ""
+    fragment_route, separator, fragment_query = parsed.fragment.partition("?")
+    fragment_params = urllib.parse.parse_qs(fragment_query) if separator else {}
+    if (
+        (parsed.hostname or "").lower().removeprefix("www.") == "ctbpsp.com"
+        and fragment_route.lower().rstrip("/") == "/bulletindetail"
+        and fragment_params.get("uuid")
+    ):
+        # CEB stores the bulletin UUID in its SPA hash route. Dropping this
+        # fragment collapses every bulletin to https://ctbpsp.com/.
+        fragment = parsed.fragment
+    return urllib.parse.urlunparse(parsed._replace(fragment=fragment, path=path))
+
+
+def canonical_attachment_url(href: str, base_url: str, anchor: str = "") -> str | None:
+    value = strip_input_url(str(href or ""))
+    if not value or value.lower().startswith(("javascript:", "mailto:", "tel:")):
+        return None
+    try:
+        url = urllib.parse.urljoin(base_url, value)
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    extension = os.path.splitext(parsed.path.lower())[1]
+    query_text = urllib.parse.unquote(parsed.query).lower()
+    label = clean_text(anchor).lower()
+    looks_like_file = extension in ATTACHMENT_EXTENSIONS or any(
+        marker in query_text for marker in [".pdf", ".docx", ".xlsx", ".xls", ".csv", ".txt"]
+    )
+    looks_like_download = any(marker in label for marker in ["附件", "下载", "采购文件", "需求文件"])
+    if not looks_like_file and not looks_like_download:
+        return None
+    return urllib.parse.urlunparse(parsed._replace(fragment=""))
+
+
+def attachment_text_from_bytes(body: bytes, url: str, content_type: str = "") -> str:
+    extension = os.path.splitext(urllib.parse.urlparse(url).path.lower())[1]
+    lowered_type = content_type.lower()
+    lowered_url = urllib.parse.unquote(url).lower()
+    try:
+        if extension == ".pdf" or ".pdf" in lowered_url or "application/pdf" in lowered_type or body.startswith(b"%PDF"):
+            try:
+                from pypdf import PdfReader  # type: ignore
+            except ImportError:
+                return ""
+            reader = PdfReader(io.BytesIO(body))
+            return clean_text("\n".join((page.extract_text() or "") for page in reader.pages[:80]))[:12000]
+        if extension == ".docx" or ".docx" in lowered_url or "wordprocessingml" in lowered_type:
+            with zipfile.ZipFile(io.BytesIO(body)) as archive:
+                root = ET.fromstring(archive.read("word/document.xml"))
+            return clean_text("\n".join(node.text or "" for node in root.iter() if node.tag.endswith("}t")))[:12000]
+        if extension == ".xlsx" or ".xlsx" in lowered_url or "spreadsheetml" in lowered_type:
+            with zipfile.ZipFile(io.BytesIO(body)) as archive:
+                shared: list[str] = []
+                if "xl/sharedStrings.xml" in archive.namelist():
+                    root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+                    shared = [
+                        "".join(node.text or "" for node in item.iter() if node.tag.endswith("}t"))
+                        for item in root
+                        if item.tag.endswith("}si")
+                    ]
+                values: list[str] = []
+                for name in sorted(item for item in archive.namelist() if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", item)):
+                    root = ET.fromstring(archive.read(name))
+                    for cell in (node for node in root.iter() if node.tag.endswith("}c")):
+                        value = next((node.text or "" for node in cell if node.tag.endswith("}v")), "")
+                        if value and cell.get("t") == "s" and value.isdigit() and int(value) < len(shared):
+                            value = shared[int(value)]
+                        if value:
+                            values.append(value)
+            return clean_text("\n".join(values))[:12000]
+        if extension in {".txt", ".csv"} or lowered_type.startswith("text/"):
+            return clean_text(decode_response_body(body, None))[:12000]
+    except (KeyError, OSError, ValueError, ET.ParseError, zipfile.BadZipFile):
+        return ""
+    return ""
 
 
 def host_matches(host: str, scope: str) -> bool:
     host = host.lower().split("@")[-1].split(":", 1)[0]
-    scope = scope.lower()
+    scope = scope.lower().split("@")[-1].split(":", 1)[0]
     return host == scope or host.endswith("." + scope)
 
 
@@ -758,13 +883,13 @@ class SiteConfig:
                 self.skip_reason = "requires_login_or_waf"
             elif host_matches(parsed.netloc, "qianlima.com"):
                 self.adapter = "qianlima_search"
-                self.skip_reason = "requires_login"
+                self.skip_reason = ""
                 self.base_url = "https://search.qianlima.com/"
                 self.allowed_domains = ["qianlima.com", "www.qianlima.com", "search.qianlima.com"]
                 self.include_url_patterns = [r"/zb/", r"/zhaobiao/", r"/detail/", r"/notice/"]
                 self.exclude_url_patterns = [r"/about/", r"/common/", r"/user/", r"/login", r"/reg"]
                 self.record_url_fields = ["detail_url", "url", "href", "linkUrl", "contentUrl"]
-                self.record_title_fields = ["title", "showTitle", "progName", "projectName", "name"]
+                self.record_title_fields = ["title", "popTitle", "showTitle", "progName", "projectName", "name"]
             elif host_matches(parsed.netloc, "365trade.com.cn"):
                 self.adapter = "skip"
                 self.skip_reason = "requires_login_or_custom_api"
@@ -1147,7 +1272,7 @@ class ChatAIClient:
             except Exception as exc:
                 last_error = exc
                 if attempt <= self.max_retries:
-                    print(f"[warn] AI request failed attempt={attempt}: {exc}; retrying...", file=sys.stderr)
+                    print(f"[retry] AI request failed attempt={attempt}: {exc}; retrying...", file=sys.stderr)
                     time.sleep(self.retry_delay_seconds)
         raise RuntimeError(f"AI request failed after retries: {last_error}")
 
@@ -1166,6 +1291,19 @@ class AITenderMiner:
         self.site_issues: dict[str, dict[str, Any]] = {}
         self.login_attempted: set[str] = set()
         self.login_status: dict[str, dict[str, Any]] = {}
+        self.run_stats: dict[str, int] = {
+            "candidates": 0,
+            "prefiltered_closed": 0,
+            "fetch_attempted": 0,
+            "detail_failed": 0,
+            "ai_failed": 0,
+            "not_opportunity": 0,
+            "not_ai_procurement": 0,
+            "outside_date_range": 0,
+            "wrong_stage": 0,
+            "record_rejected": 0,
+            "hits": 0,
+        }
         self.last_request_at = 0.0
         if config.credentials_file:
             print(f"[auth] loaded credentials for {len(self.credentials)} site(s) from {config.credentials_file}")
@@ -1199,6 +1337,7 @@ class AITenderMiner:
 
         try:
             candidates = self.search_candidates()
+            self.run_stats["candidates"] = len(candidates)
             print(f"[search] candidates={len(candidates)}")
             if not candidates and (self.blocked_sites or self.skipped_sites or self.site_issues):
                 sites = ",".join(sorted(self.blocked_sites or self.skipped_sites or set(self.site_issues)))
@@ -1233,23 +1372,30 @@ class AITenderMiner:
                 if candidate["url"] in seen:
                     continue
                 seen.add(candidate["url"])
+                self.run_stats["fetch_attempted"] += 1
+                if self.run_stats["fetch_attempted"] % 25 == 0:
+                    self.print_funnel()
                 print(f"[fetch] {index}/{len(candidates)} {candidate['url']}")
                 page = self.fetch_detail(candidate)
                 if not page:
+                    self.run_stats["detail_failed"] += 1
                     continue
                 analysis = self.analyze(page)
                 if not analysis:
                     continue
                 record = self.build_record(page, analysis)
                 if not record:
+                    self.run_stats["record_rejected"] += 1
                     continue
                 records.append(record)
                 records = self.dedupe_records(records)
+                self.run_stats["hits"] = len(records)
                 self.write_opportunity_file(record)
                 self.write_outputs(records, quiet=True)
                 print(f"[hit] {record.get('项目名称', '')[:80]}")
         except KeyboardInterrupt:
             print("\n[stop] interrupted by user; writing current outputs...", file=sys.stderr)
+            self.print_funnel()
             if not records:
                 self.write_run_status(
                     "interrupted",
@@ -1265,10 +1411,12 @@ class AITenderMiner:
                 return
 
         self.write_outputs(records)
+        self.print_funnel()
         self.write_run_status(
             "ok",
             {
                 "opportunities": len(records),
+                "funnel": self.run_stats,
                 "blocked_sites": sorted(self.blocked_sites),
                 "skipped_sites": sorted(self.skipped_sites),
                 "site_issues": self.site_issues,
@@ -1276,6 +1424,21 @@ class AITenderMiner:
             },
         )
         print(f"[done] opportunities={len(records)} output_dir={self.config.output_dir}")
+
+    def print_funnel(self) -> None:
+        attempted = self.run_stats["fetch_attempted"]
+        hits = self.run_stats["hits"]
+        hit_rate = (hits / attempted * 100) if attempted else 0.0
+        rejected = {
+            key: value
+            for key, value in self.run_stats.items()
+            if key not in {"candidates", "fetch_attempted", "hits"} and value
+        }
+        rejected_text = ",".join(f"{key}={value}" for key, value in rejected.items()) or "none"
+        print(
+            f"[funnel] candidates={self.run_stats['candidates']} fetched={attempted} "
+            f"hits={hits} hit_rate={hit_rate:.1f}% rejected={rejected_text}"
+        )
 
     def preflight_ai(self) -> bool:
         if not self.ai.available:
@@ -1517,6 +1680,8 @@ class AITenderMiner:
         for site in self.config.sites:
             site_keywords = self.site_search_keywords(site)
             for keyword in site_keywords:
+                keyword_page_signatures: set[tuple[str, ...]] = set()
+                keyword_seen_urls: set[str] = set()
                 if site.name in self.skipped_sites:
                     break
                 if site.name in self.blocked_sites:
@@ -1526,12 +1691,43 @@ class AITenderMiner:
                 for page in range(self.config.search_page_start, self.config.search_page_start + page_limit):
                     if site.name in self.blocked_sites:
                         break
-                    records = self.search_site_records(site, keyword, page)
+                    try:
+                        records = self.search_site_records(site, keyword, page)
+                    except Exception as exc:
+                        reason = (
+                            f"keyword={keyword} page={page} parse failed: "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+                        self.mark_site_issue(site, "search_parse_error", reason)
+                        print(f"[warn] site={site.name} {reason}; continuing", file=sys.stderr)
+                        break
                     print(f"[search] site={site.name} keyword={keyword} page={page} records={len(records)}")
                     if not records:
                         break
-                    for record_url, title, snippet, publish_date, customer_or_org in self.urls_from_records(records, site):
+                    page_records = self.urls_from_records(records, site)
+                    signature = tuple(sorted(item[0] for item in page_records))
+                    if signature and signature in keyword_page_signatures:
+                        print(
+                            f"[search] site={site.name} keyword={keyword} page={page} "
+                            "repeated_page=true; stopping keyword"
+                        )
+                        break
+                    if signature:
+                        keyword_page_signatures.add(signature)
+                    new_keyword_urls = {item[0] for item in page_records} - keyword_seen_urls
+                    if page_records and not new_keyword_urls:
+                        print(
+                            f"[search] site={site.name} keyword={keyword} page={page} "
+                            "new_records=0; stopping keyword"
+                        )
+                        break
+                    keyword_seen_urls.update(item[0] for item in page_records)
+                    for record_url, title, snippet, publish_date, customer_or_org in page_records:
                         if record_url in seen:
+                            continue
+                        if is_definitively_closed_title(title):
+                            self.run_stats["prefiltered_closed"] += 1
+                            seen.add(record_url)
                             continue
                         if publish_date and not within_recent_days(publish_date, self.config.recent_days):
                             continue
@@ -1547,7 +1743,17 @@ class AITenderMiner:
                             }
                         )
                         seen.add(record_url)
-        return candidates
+                    if (
+                        site.adapter == "html_search"
+                        and host_matches(urllib.parse.urlparse(site.base_url).netloc, "ccgp.gov.cn")
+                        and len(records) < 20
+                    ):
+                        print(
+                            f"[search] site={site.name} keyword={keyword} page={page} "
+                            "last_page=true; stopping keyword"
+                        )
+                        break
+        return sorted(candidates, key=candidate_priority, reverse=True)
 
     def site_search_keywords(self, site: SiteConfig) -> list[str]:
         scan_only_adapters = {
@@ -1685,7 +1891,7 @@ class AITenderMiner:
                         self.config.request_backoff_multiplier ** (attempt - 1)
                     )
                     print(
-                        f"[warn] {label} failed attempt={attempt}/{total_attempts}: HTTP {exc.code}; "
+                        f"[retry] {label} failed attempt={attempt}/{total_attempts}: HTTP {exc.code}; "
                         f"retrying in {delay:.1f}s...",
                         file=sys.stderr,
                     )
@@ -1699,7 +1905,7 @@ class AITenderMiner:
                         self.config.request_backoff_multiplier ** (attempt - 1)
                     )
                     print(
-                        f"[warn] {label} failed attempt={attempt}/{total_attempts}: {exc}; "
+                        f"[retry] {label} failed attempt={attempt}/{total_attempts}: {exc}; "
                         f"retrying in {delay:.1f}s...",
                         file=sys.stderr,
                     )
@@ -2480,25 +2686,6 @@ class AITenderMiner:
             seen.add(detail_url)
 
     def fetch_qianlima_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
-        credential = self.credential_for_site(site)
-        if not credential:
-            self.login_status[site.name] = {
-                "status": "no_credentials",
-                "reason": "qianlima search API requires a logged-in account; no username/password was found in the credentials file",
-            }
-            self.mark_site_issue(site, "no_credentials", self.login_status[site.name]["reason"])
-            self.skipped_sites.add(site.name)
-            return []
-        if not self.ensure_site_login(site):
-            login_status = self.login_status.get(site.name, {})
-            self.mark_site_issue(
-                site,
-                str(login_status.get("status") or "login_failed"),
-                str(login_status.get("reason") or "qianlima login did not complete"),
-            )
-            self.skipped_sites.add(site.name)
-            return []
-
         params = {
             "filtermode": "1",
             "timeType": "101",
@@ -2542,8 +2729,7 @@ class AITenderMiner:
         if "未登录" in message or "登录" in message and payload.get("code") not in {0, 200}:
             self.login_status[site.name] = {
                 "status": "login_required",
-                "account": mask_username(credential.username),
-                "reason": message or "qianlima API requires login",
+                "reason": message or "qianlima public search API currently requires login",
             }
             self.mark_site_issue(site, "login_required", self.login_status[site.name]["reason"])
             self.skipped_sites.add(site.name)
@@ -2551,13 +2737,16 @@ class AITenderMiner:
         if looks_verification_required(message):
             self.login_status[site.name] = {
                 "status": "verification_required",
-                "account": mask_username(credential.username),
                 "reason": message,
             }
             self.mark_site_issue(site, "verification_required", message)
             self.skipped_sites.add(site.name)
             return []
 
+        self.login_status[site.name] = {
+            "status": "anonymous_public_api",
+            "reason": "qianlima public search API is available without credentials",
+        }
         records: list[dict[str, Any]] = []
         for item in self.records_from_json_payload(site, payload):
             if isinstance(item, dict):
@@ -2565,9 +2754,10 @@ class AITenderMiner:
         return records
 
     def add_qianlima_record(self, records: list[dict[str, Any]], item: dict[str, Any], keyword: str) -> None:
-        title = clean_text(
+        title = strip_html_text(
             str(
                 item.get("title")
+                or item.get("popTitle")
                 or item.get("showTitle")
                 or item.get("progName")
                 or item.get("projectName")
@@ -2859,13 +3049,18 @@ class AITenderMiner:
                     )
                 ),
                 "links": [u for href, _ in parser.links if (u := canonical_url(href, url))],
+                "attachment_links": [
+                    attachment
+                    for href, anchor in parser.links
+                    if (attachment := canonical_attachment_url(href, url, anchor))
+                ],
                 "publish_date": candidate.get("publish_date", ""),
                 "customer_or_org": candidate.get("customer_or_org", ""),
             }
             if best is None or detail_score(page) > detail_score(best):
                 best = page
         if best is not None:
-            return best
+            return self.enrich_page_from_attachments(best)
         fallback_text = clean_text("\n".join([candidate.get("title", ""), candidate.get("snippet", "")]))
         if fallback_text:
             return {
@@ -2938,6 +3133,7 @@ class AITenderMiner:
         content_html = str(row.get("noticeContent") or row.get("briefContent") or "")
         content_text = clean_text(html.unescape(content_html))
         attachments = cfcpn_attachment_names(row.get("file"))
+        attachment_links = cfcpn_attachment_urls(row.get("file"), candidate["url"])
         fields = [
             ("项目名称", title),
             ("项目编号", row.get("bidsNo")),
@@ -2953,15 +3149,16 @@ class AITenderMiner:
         page_text = clean_text("\n".join([candidate.get("snippet", ""), meta_text, content_text]))
         if not page_text:
             return None
-        return {
+        return self.enrich_page_from_attachments({
             "url": candidate["url"],
             "source_url": candidate["url"],
             "title": title or candidate.get("title", ""),
             "text": page_text,
             "links": [],
+            "attachment_links": attachment_links,
             "publish_date": candidate.get("publish_date") or normalize_publish_time(row.get("publishTime")),
             "customer_or_org": record_customer_or_org(row, title) or candidate.get("customer_or_org", ""),
-        }
+        })
 
     def fetch_szygcgpt_detail(self, candidate: dict[str, str]) -> dict[str, Any] | None:
         parsed = urllib.parse.urlparse(candidate["url"])
@@ -3098,6 +3295,42 @@ class AITenderMiner:
             return None
         return {"html": html}
 
+    def enrich_page_from_attachments(self, page: dict[str, Any]) -> dict[str, Any]:
+        links = list(dict.fromkeys(page.get("attachment_links") or []))
+        if not links or not procurement_content_is_insufficient(
+            page.get("title", ""),
+            page.get("text", ""),
+        ):
+            return page
+        attachment_texts: list[str] = []
+        for url in links[:3]:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": self.config.user_agent,
+                    "Accept": "application/pdf,application/vnd.openxmlformats-officedocument.*,"
+                    "application/vnd.ms-excel,text/plain,text/csv,*/*",
+                    "Referer": str(page.get("url") or ""),
+                },
+            )
+            try:
+                with self.open_with_retries(request, label=f"fetch attachment {url}") as response:
+                    body = response.read(self.config.max_response_bytes)
+                    content_type = response.headers.get("Content-Type", "")
+            except Exception as exc:
+                print(f"[warn] attachment fetch failed: {url} ({exc})", file=sys.stderr)
+                continue
+            text = attachment_text_from_bytes(body, url, content_type)
+            if text:
+                attachment_texts.append(f"附件来源：{url}\n{text[:6000]}")
+        if attachment_texts:
+            page = dict(page)
+            page["attachment_text"] = clean_text("\n".join(attachment_texts))
+            page["text"] = clean_text(
+                "\n".join([str(page.get("text") or ""), "附件解析内容：", page["attachment_text"]])
+            )
+        return page
+
     def analyze(self, page: dict[str, Any]) -> dict[str, Any] | None:
         if self.config.ai.enabled:
             return self.analyze_with_ai(page)
@@ -3111,7 +3344,7 @@ class AITenderMiner:
             "url": page["url"],
             "title": page["title"],
             "text": page["text"][:12000],
-            "ai_keywords": AI_KEYWORDS,
+            "attachment_text": page.get("attachment_text", "")[:6000],
             "recent_days": self.config.recent_days,
             "industry_categories": INDUSTRY_CATEGORIES,
             "date_range": date_range_for_recent_days(self.config.recent_days),
@@ -3119,61 +3352,100 @@ class AITenderMiner:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "你是招标采购公告抽取助手。只返回 JSON，不要解释。"
-                    "任务是抽取AI相关商机，并做简单行业和产品匹配。"
-                ),
+                "content": "你只负责公告事实抽取和商机阶段判断，不执行产品匹配。",
             },
             {
                 "role": "user",
-                "content": (
-                    "判断网页是否和AI相关。只要项目标题或正文出现AI、人工智能、大模型、智能体、智能问答、智能客服、"
-                    "算法、模型训练、机器学习、计算机视觉、语音识别等需求或结果，就视为AI相关商机，is_opportunity=true。"
-                    "不要因为公告类型不标准、字段不完整、未匹配我司产品而判 false。"
-                    "只有完全不是AI相关，或发布日期明确不在 date_range 内，才 is_opportunity=false。"
-                    "返回 JSON 字段：is_opportunity(boolean), business_stage("
-                    "tender_notice/procurement_notice/award_candidate/award_result/contract_notice/not_opportunity), "
-                    "project_name, project_id, customer_or_org, deadline, procurement_scope, publish_date, reason, "
-                    "organization_industry, company_relevance, matched_products, product_match_reason。"
-                    "publish_date 是公告发布日期/发布时间，不是投标截止时间。deadline 是投标/响应截止或开标时间。"
-                    "project_id 只能来自“项目编号、招标编号、交易编号、采购计划编号、合同编号”等明确标签；"
-                    "正文没有明确编号就填 null，绝不能使用 URL、网页文件名、uuid、hash 或链接末尾乱码。"
-                    "project_name 必须是完整项目名称，只抽“项目名称/采购项目名称/招标项目名称”后面的值；"
-                    "不要包含“进行竞争性磋商采购、公告邀请、潜在供应商、项目基本情况、采购方式”等公告套话。"
-                    "customer_or_org 填采购人、招标人、采购单位、招标单位、需求方、采购方、采购主体、项目业主、建设单位、发布单位等最终需求单位；不要填代理机构。"
-                    "不要把“采购”“方式：竞争性磋商”“采购方式”当作 customer_or_org。"
-                    "如果项目名称开头明显是公司/银行/医院/学校/政府单位名称，也可以作为 customer_or_org。"
-                    "procurement_scope 用一句完整短句概括采购内容；不要只返回半句话，不要包含交货地点、联系方式、供应商资格等后续章节。"
-                    "organization_industry 只能从以下行业中选一个："
-                    + "、".join(INDUSTRY_CATEGORIES)
-                    + "。company_relevance 只能填 high/medium/low/none。matched_products 只能从"
-                    " VZOOM企业级AI智能体、VZOOM财税大模型、VZOOM AI中台 中选择；无匹配返回空数组。"
-                    "智能体/Agent/智能问答/智能客服/流程自动化匹配企业级AI智能体；"
-                    "财税、税务、会计、发票、报销、审计、财务核算匹配财税大模型；"
-                    "算力、GPU、推理集群、AI平台、中台、模型服务、数据治理匹配AI中台。"
-                    "product_match_reason 用一句话说明依据。"
-                    "\n\n网页："
-                    + json.dumps(payload, ensure_ascii=False)
-                ),
+                "content": load_prompt_file("opportunity_extraction.txt")
+                + "\n"
+                + json.dumps(payload, ensure_ascii=False),
             },
         ]
         try:
             analysis = self.ai.chat_json(messages)
         except Exception as exc:
             print(f"[warn] AI page analysis failed: {page['url']} ({exc})", file=sys.stderr)
+            self.run_stats["ai_failed"] += 1
             return None
-        if not analysis.get("is_opportunity"):
-            return rule_analysis(page)
-        if not topic_relevant(page["title"], page["text"], analysis):
+        deterministic_stage = rule_stage(page["title"], page["text"])
+        deterministic_ai_relevant = substantive_ai_relevant(page["title"], page["text"])
+        if not analysis.get("is_opportunity") and deterministic_stage not in OPPORTUNITY_STAGES:
+            self.run_stats["not_opportunity"] += 1
+            return None
+        if not topic_relevant(page["title"], page["text"], analysis) and not deterministic_ai_relevant:
+            self.run_stats["not_ai_procurement"] += 1
             return None
         if self.is_outside_recent_window(page, analysis):
+            self.run_stats["outside_date_range"] += 1
             return None
-        if str(analysis.get("business_stage", "")) not in FINAL_STAGES:
-            analysis["business_stage"] = rule_stage(page["title"], page["text"])
+        title_stage = rule_stage(page["title"], "")
+        model_stage = str(analysis.get("business_stage") or "")
+        if title_stage in KNOWN_BUSINESS_STAGES and title_stage != "not_opportunity":
+            stage = title_stage
+        elif model_stage in KNOWN_BUSINESS_STAGES:
+            stage = model_stage
+        else:
+            stage = rule_stage(page["title"], page["text"])
+        if stage not in OPPORTUNITY_STAGES:
+            self.run_stats["wrong_stage"] += 1
+            return None
+        analysis["business_stage"] = stage
+        analysis["product_analysis"] = self.analyze_product_match(page, analysis)
         return analysis
+
+    def analyze_product_match(
+        self,
+        page: dict[str, Any],
+        extraction: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = {
+            "project_name": extraction.get("project_name") or page.get("title"),
+            "customer_or_org": extraction.get("customer_or_org"),
+            "procurement_target": extraction.get("procurement_target"),
+            "procurement_purpose": extraction.get("procurement_purpose"),
+            "core_requirements": extraction.get("core_requirements") or [],
+            "modules_or_packages": extraction.get("modules_or_packages") or [],
+            "procurement_scope": extraction.get("procurement_scope"),
+            "source_text": page.get("text", "")[:10000],
+            "company_products": COMPANY_PRODUCT_CATALOG,
+        }
+        messages = [
+            {
+                "role": "system",
+                "content": "你只负责基于已抽取采购需求进行产品匹配，不修改公告抽取结论。",
+            },
+            {
+                "role": "user",
+                "content": load_prompt_file("product_matching.txt")
+                + "\n"
+                + json.dumps(payload, ensure_ascii=False),
+            },
+        ]
+        try:
+            result = self.ai.chat_json(messages)
+        except Exception as exc:
+            print(f"[warn] AI product matching failed: {page['url']} ({exc})", file=sys.stderr)
+            return {
+                "company_relevance": "none",
+                "matched_products": [],
+                "product_matches": [],
+                "unmatched_reasons": [
+                    {
+                        "product": product,
+                        "missing_demand_evidence": "产品匹配分析未完成",
+                        "evidence": "",
+                    }
+                    for product in COMPANY_PRODUCT_CATALOG
+                ],
+                "product_match_reason": "产品匹配分析未完成，未自动推断业务结论。",
+                "_matching_error": str(exc),
+            }
+        return result
 
     def build_record(self, page: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any] | None:
         if self.is_outside_recent_window(page, analysis):
+            return None
+        if str(analysis.get("business_stage") or "") not in OPPORTUNITY_STAGES:
             return None
         fallback = extract_fields(page["title"], page["text"])
         project_id = clean_project_id(
@@ -3181,20 +3453,32 @@ class AITenderMiner:
             page.get("title", ""),
             page.get("url", ""),
         )
-        raw_matched_products = normalize_matched_products(analysis.get("matched_products"))
-        matched_products = validate_matched_products(
-            raw_matched_products,
-            f"{page.get('title', '')} {page.get('text', '')}",
-        )
-        company_relevance = normalize_company_relevance(analysis.get("company_relevance"))
-        if not matched_products and company_relevance in {"高", "中"}:
-            company_relevance = "低"
-        product_match_reason = value_or_empty(analysis.get("product_match_reason"))
-        if raw_matched_products and matched_products and raw_matched_products != matched_products:
-            product_match_reason = (
-                f"产品列已按公告正文关键词校验为：{matched_products}。"
-                + (f"原模型理由：{product_match_reason}" if product_match_reason else "")
+        product_analysis = analysis.get("product_analysis")
+        if isinstance(product_analysis, dict) and not product_analysis.get("_matching_error"):
+            product_fit = finalize_model_product_match(
+                product_analysis,
+                page.get("title", ""),
+                page.get("text", ""),
             )
+        else:
+            product_fit = hybrid_company_product_match(
+                product_analysis if isinstance(product_analysis, dict) else analysis,
+                page.get("title", ""),
+                page.get("text", ""),
+            )
+            product_fit["unmatched_reason"] = rule_unmatched_reasons(product_fit)
+            product_fit["consistency_issues"] = (
+                "产品匹配模型调用失败，已使用本地能力规则完成兜底判断"
+                if isinstance(product_analysis, dict) and product_analysis.get("_matching_error")
+                else ""
+            )
+        matched_products = product_fit["matched_products"]
+        company_relevance = normalize_company_relevance(product_fit["company_relevance"]) or "无"
+        product_match_reason = value_or_empty(product_fit["product_match_reason"])
+        business_match_explanation = combine_business_match_explanation(
+            product_match_reason,
+            product_fit.get("unmatched_reason"),
+        )
         project_name = clean_project_name(
             analysis.get("project_name") or fallback.get("project_name") or page["title"],
             page.get("title", ""),
@@ -3206,22 +3490,22 @@ class AITenderMiner:
             page.get("customer_or_org"),
             extract_customer_or_org(project_name, page.get("text", "")),
             infer_org_from_title(project_name),
+            excluded=extract_agency_names(page.get("text", "")),
         )
-        procurement_scope = clean_procurement_scope(
-            analysis.get("procurement_scope") or fallback.get("procurement_scope"),
+        procurement_scope = compose_procurement_scope(
+            analysis,
             project_name,
             page.get("text", ""),
         )
+        inferred_industry = infer_industry(customer_or_org)
+        if inferred_industry == "其他" and not customer_or_org:
+            inferred_industry = normalize_industry(
+                analysis.get("organization_industry")
+                or infer_industry("", project_name, page.get("text", ""))
+            )
         record = {
             "招标单位": customer_or_org,
-            "招标单位行业分类": normalize_industry(
-                analysis.get("organization_industry")
-                or infer_industry(
-                    customer_or_org,
-                    project_name,
-                    page.get("text", ""),
-                )
-            ),
+            "招标单位行业分类": inferred_industry,
             "项目名称": project_name,
             "截止日期": normalize_datetime(analysis.get("deadline") or fallback.get("deadline")),
             "项目编号": project_id,
@@ -3229,7 +3513,8 @@ class AITenderMiner:
             "源网址": page["url"],
             "与公司业务匹配度": company_relevance,
             "匹配产品": matched_products or "无明确匹配产品",
-            "匹配理由": product_match_reason,
+            "业务匹配说明": business_match_explanation,
+            "匹配一致性问题": value_or_empty(product_fit.get("consistency_issues")),
         }
         if not record.get("项目名称") or not record.get("源网址"):
             return None
@@ -3516,6 +3801,30 @@ def cfcpn_attachment_names(value: Any) -> list[str]:
     return names
 
 
+def cfcpn_attachment_urls(value: Any, base_url: str) -> list[str]:
+    raw = value_or_empty(value)
+    if not raw or raw in {"]", "[]"}:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    urls: list[str] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        raw_url = first_nonempty(
+            item,
+            ["fileUrl", "downloadUrl", "url", "filePath", "path"],
+        )
+        url = canonical_attachment_url(value_or_empty(raw_url), base_url, value_or_empty(item.get("fileName")))
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
 def cfcpn_candidate_fallback_page(candidate: dict[str, str]) -> dict[str, Any] | None:
     fallback_text = clean_text("\n".join([candidate.get("title", ""), candidate.get("snippet", "")]))
     if not fallback_text:
@@ -3600,15 +3909,71 @@ def is_missing(value: Any) -> bool:
 
 def topic_relevant(title: str, text: str, analysis: dict[str, Any] | None = None) -> bool:
     analysis = analysis or {}
-    haystack = "\n".join(
-        [
+    if "procurement_ai_related" in analysis:
+        return bool(analysis.get("procurement_ai_related")) and verified_procurement_ai_evidence(
+            analysis,
             title,
-            text[:8000],
-            str(analysis.get("project_name", "")),
-            str(analysis.get("reason", "")),
-        ]
-    ).lower()
-    return contains_ai_keyword(haystack)
+            text,
+        )
+    return substantive_ai_relevant(title, text)
+
+
+def verified_procurement_ai_evidence(analysis: dict[str, Any], title: str, text: str) -> bool:
+    evidence = clean_text(value_or_empty(analysis.get("ai_relevance_evidence")))
+    context = clean_text(f"{title}\n{text}")
+    if evidence and evidence.lower() in context.lower() and contains_ai_keyword(evidence):
+        return True
+    scope = clean_text(
+        " ".join(
+            [
+                value_or_empty(analysis.get("procurement_target")),
+                value_or_empty(analysis.get("procurement_purpose")),
+                value_or_empty(analysis.get("procurement_scope")),
+                " ".join(map(str, analysis.get("core_requirements") or [])),
+                " ".join(map(str, analysis.get("modules_or_packages") or [])),
+            ]
+        )
+    )
+    return (
+        contains_ai_keyword(scope)
+        and not procurement_scope_is_low_information(scope, analysis.get("project_name") or title)
+        and substantive_ai_relevant(title, text)
+    )
+
+
+def substantive_ai_relevant(title: str, text: str) -> bool:
+    content = clean_text(text)
+    scope = extract_labeled_section(
+        content,
+        [
+            "采购内容",
+            "采购需求",
+            "项目内容",
+            "招标范围",
+            "采购范围",
+            "服务内容",
+            "建设内容",
+            "简要规格描述",
+        ],
+        max_length=1000,
+    )
+    if scope and not procurement_scope_is_low_information(scope, title):
+        return contains_ai_keyword(scope)
+
+    reduced = clean_text(f"{title}\n{content[:8000]}")
+    for org in {
+        extract_customer_or_org(title, content),
+        infer_org_from_title(title),
+        *extract_agency_names(content),
+    }:
+        if org:
+            reduced = reduced.replace(org, " ")
+    for match in re.finditer(r".{0,90}(?:人工智能|大模型|智能体|机器学习|模型训练|算法模型|AIGC).{0,140}", reduced, re.I):
+        context = match.group(0)
+        if re.search(r"(?:采购|建设|开发|部署|升级|改造|服务|平台|系统|模型|软件|应用|能力|功能)", context):
+            if not re.search(r"(?:股权融资|财务顾问|法律顾问|审计服务|会计师事务所)", context):
+                return True
+    return False
 
 
 def title_ai_relevant(title: str, keyword: str = "") -> bool:
@@ -3664,7 +4029,13 @@ def parse_date(value: Any) -> datetime | None:
     match = re.search(r"([0-9]{4})-([0-9]{2})-([0-9]{2})", normalized)
     if not match:
         return None
-    return datetime(*(int(part) for part in match.groups()))
+    try:
+        return datetime(*(int(part) for part in match.groups()))
+    except ValueError:
+        # Some source pages contain identifiers or malformed values that look
+        # like dates (for example 2026-19-01). Treat them as unknown instead
+        # of aborting the entire crawl.
+        return None
 
 
 def recent_window(days: int) -> tuple[datetime, datetime]:
@@ -3940,11 +4311,27 @@ def clean_org_name(value: Any) -> str:
     return org
 
 
-def select_best_org_name(*values: Any) -> str:
+def extract_agency_names(text: Any) -> set[str]:
+    content = re.sub(r"\s+", " ", value_or_empty(text))
+    names: set[str] = set()
+    for match in re.finditer(
+        r"(?:采购代理机构名称|招标代理机构名称|采购代理机构|招标代理机构|代理机构)"
+        r"[：:\s]*([^。；;，,\n]{2,100})",
+        content,
+        flags=re.IGNORECASE,
+    ):
+        name = clean_org_name(match.group(1))
+        if name:
+            names.add(name)
+    return names
+
+
+def select_best_org_name(*values: Any, excluded: set[str] | None = None) -> str:
+    excluded_names = {clean_org_name(value) for value in (excluded or set())}
     candidates: list[str] = []
     for value in values:
         org = clean_org_name(value)
-        if org and org not in candidates:
+        if org and org not in excluded_names and org not in candidates:
             candidates.append(org)
     if not candidates:
         return ""
@@ -4071,12 +4458,75 @@ def clean_procurement_scope(value: Any, project_name: str = "", text: str = "") 
             max_length=220,
         )
     scope = normalize_procurement_scope(raw)
-    if scope:
+    if scope and not procurement_scope_is_low_information(scope, project_name):
         return scope
-    name = normalize_project_name(project_name)
-    if is_good_project_name(name):
-        return name
     return ""
+
+
+def procurement_scope_is_low_information(scope: Any, project_name: Any = "") -> bool:
+    value = normalize_procurement_scope(scope)
+    if not value:
+        return True
+    normalized_scope = re.sub(r"[\W_]+", "", value).lower()
+    normalized_name = re.sub(r"[\W_]+", "", normalize_project_name(project_name)).lower()
+    if normalized_name and (
+        normalized_scope == normalized_name
+        or normalized_scope in normalized_name
+        or normalized_name in normalized_scope
+    ):
+        return True
+    if len(normalized_scope) < 12:
+        return True
+    return value in {"详见附件", "具体详见附件", "见附件", "采购内容详见附件"}
+
+
+def procurement_content_is_insufficient(project_name: Any, text: Any) -> bool:
+    content = clean_text(value_or_empty(text))
+    scope = extract_labeled_section(
+        content,
+        [
+            "采购内容",
+            "采购需求",
+            "项目内容",
+            "招标范围",
+            "采购范围",
+            "服务内容",
+            "建设内容",
+            "简要规格描述",
+        ],
+        max_length=500,
+    )
+    return (
+        len(content) < 500
+        or "详见附件" in content
+        or procurement_scope_is_low_information(scope, project_name)
+    )
+
+
+def compose_procurement_scope(analysis: dict[str, Any], project_name: str, text: str) -> str:
+    parts: list[str] = []
+    field_specs = [
+        ("采购标的", analysis.get("procurement_target")),
+        ("主要用途", analysis.get("procurement_purpose")),
+        ("核心需求", analysis.get("core_requirements")),
+        ("模块/标包", analysis.get("modules_or_packages")),
+    ]
+    for label, value in field_specs:
+        if isinstance(value, list):
+            content = "、".join(clean_text(value_or_empty(item)) for item in value if not is_missing(item))
+        else:
+            content = clean_text(value_or_empty(value))
+        if content:
+            parts.append(f"{label}：{content}")
+    structured = "；".join(parts)
+    candidates = [structured, analysis.get("procurement_scope")]
+    fallback = extract_fields(project_name, text).get("procurement_scope")
+    candidates.append(fallback)
+    for candidate in candidates:
+        scope = clean_procurement_scope(candidate, project_name, text)
+        if scope:
+            return scope
+    return MISSING_CONFIRMATION
 
 
 def normalize_procurement_scope(value: Any) -> str:
@@ -4232,7 +4682,7 @@ def format_csv_record(record: dict[str, Any]) -> dict[str, str]:
         "源网址": ["源网址", "来源链接", "url"],
         "与公司业务匹配度": ["与公司业务匹配度", "我司业务相关度", "company_relevance"],
         "匹配产品": ["匹配产品", "matched_products"],
-        "匹配理由": ["匹配理由", "product_match_reason"],
+        "业务匹配说明": ["业务匹配说明", "匹配理由", "product_match_reason"],
     }
     row: dict[str, str] = {}
     for field in OUTPUT_CSV_FIELDS:
@@ -4241,6 +4691,11 @@ def format_csv_record(record: dict[str, Any]) -> dict[str, str]:
             if not is_missing(value):
                 break
             value = record.get(alias)
+        if field == "业务匹配说明":
+            value = combine_business_match_explanation(
+                value,
+                record.get("不匹配依据") or record.get("unmatched_reason"),
+            )
         if field == "匹配产品" and is_missing(value):
             row[field] = "无明确匹配产品"
         else:
@@ -4356,6 +4811,264 @@ def normalize_product_name(value: str) -> str:
     return text
 
 
+PRODUCT_MATCH_RULES: dict[str, list[tuple[str, int]]] = {
+    "VZOOM企业级AI智能体": [
+        ("agent × skill", 85),
+        ("多智能体", 75),
+        ("智能体", 65),
+        ("agent", 65),
+        ("工作流编排", 60),
+        ("智能问答", 70),
+        ("智能客服", 70),
+        ("ai助手", 65),
+        ("copilot", 55),
+        ("智能助手", 65),
+        ("流程自动化", 65),
+        ("rag", 65),
+        ("智能办公", 45),
+        ("工作流", 35),
+        ("需求拆解", 30),
+        ("ai应用", 30),
+        ("大模型应用", 30),
+        ("知识库", 25),
+        ("skill", 25),
+    ],
+    "VZOOM财税大模型": [
+        ("财税大模型", 90),
+        ("财务大模型", 90),
+        ("税务大模型", 90),
+        ("发票模式异常", 85),
+        ("财税知识库", 80),
+        ("发票异常", 70),
+        ("供应链关联关系", 65),
+        ("会计核算", 65),
+        ("智能审计", 65),
+        ("发票识别", 65),
+        ("财务核算", 55),
+        ("财税", 70),
+        ("税务", 65),
+        ("纳税", 50),
+        ("会计", 45),
+        ("财税辅助决策", 45),
+        ("报销", 40),
+        ("审计", 40),
+        ("发票", 35),
+    ],
+    "VZOOM AI中台": [
+        ("人工智能中台", 90),
+        ("ai中台", 90),
+        ("多智能体协同调度", 75),
+        ("大模型平台", 65),
+        ("ai能力中心", 65),
+        ("ai服务平台", 65),
+        ("人工智能平台", 70),
+        ("分布式推理", 60),
+        ("推理平台", 60),
+        ("ai平台", 70),
+        ("模型服务", 65),
+        ("算力调度", 55),
+        ("智能体调度", 50),
+        ("异构算力", 45),
+        ("推理集群", 45),
+        ("数据治理", 45),
+        ("弹性伸缩", 30),
+        ("高并发", 20),
+        ("gpu", 15),
+        ("算力", 15),
+        ("服务器", 5),
+    ],
+}
+
+
+def rule_product_scores(title: str, text: str) -> tuple[dict[str, int], dict[str, list[str]]]:
+    content = clean_text(f"{title} {text[:8000]}").lower()
+    scores: dict[str, int] = {}
+    evidence: dict[str, list[str]] = {}
+    for product, rules in PRODUCT_MATCH_RULES.items():
+        hits: list[str] = []
+        score = 0
+        for marker, weight in rules:
+            if marker.lower() in content and marker not in hits:
+                hits.append(marker)
+                score += weight
+        scores[product] = min(score, 100)
+        evidence[product] = hits[:4]
+    return scores, evidence
+
+
+def verified_ai_product_scores(
+    analysis: dict[str, Any],
+    context: str,
+) -> tuple[dict[str, int], dict[str, str]]:
+    normalized_context = clean_text(context).lower()
+    scores: dict[str, int] = {}
+    evidence: dict[str, str] = {}
+    matches = analysis.get("product_matches")
+    if not isinstance(matches, list):
+        return scores, evidence
+    for item in matches:
+        if not isinstance(item, dict):
+            continue
+        product = normalize_product_name(value_or_empty(item.get("product")))
+        if product not in COMPANY_PRODUCTS:
+            continue
+        quote = clean_text(value_or_empty(item.get("evidence")))
+        if not quote or quote.lower() not in normalized_context:
+            continue
+        try:
+            score = max(0, min(100, int(float(item.get("score", 0)))))
+        except (TypeError, ValueError):
+            continue
+        if score > scores.get(product, 0):
+            scores[product] = score
+            evidence[product] = quote[:120]
+    return scores, evidence
+
+
+def hybrid_company_product_match(
+    analysis: dict[str, Any],
+    title: str,
+    text: str,
+) -> dict[str, Any]:
+    context = f"{title} {text}"
+    rule_scores, rule_evidence = rule_product_scores(title, text)
+    ai_scores, ai_evidence = verified_ai_product_scores(analysis, context)
+    scores = {
+        product: max(rule_scores.get(product, 0), ai_scores.get(product, 0))
+        for product in COMPANY_PRODUCT_CATALOG
+    }
+    matched = [product for product in COMPANY_PRODUCT_CATALOG if scores[product] >= 65]
+    highest = max(scores.values(), default=0)
+    if highest >= 80:
+        relevance = "high"
+    elif highest >= 65:
+        relevance = "medium"
+    elif highest >= 40:
+        relevance = "low"
+    else:
+        relevance = "none"
+
+    if matched:
+        details: list[str] = []
+        for product in matched:
+            evidence = ai_evidence.get(product) or "、".join(rule_evidence.get(product, [])[:3])
+            details.append(f"{product} {scores[product]}分（依据：{evidence}）")
+        reason = "；".join(details)
+    elif highest >= 40:
+        product = max(scores, key=scores.get)
+        evidence = ai_evidence.get(product) or "、".join(rule_evidence.get(product, [])[:3])
+        reason = f"与{product}存在潜在关联（{highest}分，依据：{evidence}），但未达到明确产品匹配阈值。"
+    else:
+        reason = "公告未提供足以对应三个产品能力边界的采购需求证据，建议仅作为AI行业线索保留。"
+
+    return {
+        "company_relevance": relevance,
+        "matched_products": "、".join(matched),
+        "product_match_reason": reason,
+        "product_scores": scores,
+    }
+
+
+def format_unmatched_reasons(value: Any, matched_products: str) -> tuple[str, list[str]]:
+    matched = {item for item in matched_products.split("、") if item}
+    provided: dict[str, str] = {}
+    issues: list[str] = []
+    if isinstance(value, list):
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            product = normalize_product_name(value_or_empty(item.get("product")))
+            if product not in COMPANY_PRODUCTS or product in matched:
+                continue
+            missing = clean_text(
+                value_or_empty(item.get("missing_demand_evidence"))
+                or value_or_empty(item.get("missing_capability"))
+            )
+            evidence = clean_text(value_or_empty(item.get("evidence")))
+            detail = missing
+            if evidence:
+                detail += f"（依据：{evidence}）"
+            if detail:
+                provided[product] = detail
+    parts: list[str] = []
+    for product in COMPANY_PRODUCT_CATALOG:
+        if product in matched:
+            continue
+        detail = provided.get(product)
+        if not detail:
+            detail = "模型未提供不匹配依据"
+            issues.append(f"{product}缺少不匹配依据")
+        parts.append(f"{product}：{detail}")
+    return "；".join(parts), issues
+
+
+def combine_business_match_explanation(reason: Any, unmatched_reason: Any) -> str:
+    conclusion = clean_text(value_or_empty(reason))
+    product_notes = clean_text(value_or_empty(unmatched_reason))
+    if conclusion and product_notes:
+        if product_notes in conclusion:
+            return conclusion
+        return f"匹配结论：{conclusion}；分产品说明：{product_notes}"
+    return conclusion or product_notes
+
+
+def finalize_model_product_match(
+    analysis: dict[str, Any],
+    title: str,
+    text: str,
+) -> dict[str, Any]:
+    matched_products = normalize_matched_products(analysis.get("matched_products"))
+    relevance = normalize_company_relevance(analysis.get("company_relevance"))
+    reason = clean_text(value_or_empty(analysis.get("product_match_reason")))
+    verified_scores, _ = verified_ai_product_scores(analysis, f"{title} {text}")
+    issues: list[str] = []
+
+    for product in [item for item in matched_products.split("、") if item]:
+        score = verified_scores.get(product)
+        if score is None:
+            issues.append(f"{product}缺少可在采购原文中核验的匹配证据")
+        elif score < 65:
+            issues.append(f"{product}已列为匹配，但核验分数仅为{score}")
+
+    highest = max(verified_scores.values(), default=0)
+    expected_relevance = "高" if highest >= 80 else "中" if highest >= 65 else "低" if highest >= 40 else "无"
+    if relevance not in {"高", "中", "低", "无"}:
+        issues.append("业务匹配度不是允许值")
+    elif verified_scores and relevance != expected_relevance:
+        issues.append(f"模型匹配度为{relevance}，但其可核验证据分数对应{expected_relevance}")
+    if matched_products and not reason:
+        issues.append("已匹配产品但缺少匹配理由")
+    if analysis.get("_matching_error"):
+        issues.append("产品匹配调用失败")
+
+    unmatched_reason, unmatched_issues = format_unmatched_reasons(
+        analysis.get("unmatched_reasons"),
+        matched_products,
+    )
+    issues.extend(unmatched_issues)
+    return {
+        # Preserve the model's business conclusion. Consistency checks only
+        # expose conflicts for review and never rewrite the result.
+        "company_relevance": relevance or "无",
+        "matched_products": matched_products,
+        "product_match_reason": reason or "模型未提供匹配理由",
+        "unmatched_reason": unmatched_reason,
+        "consistency_issues": "；".join(dict.fromkeys(issues)),
+        "product_scores": verified_scores,
+    }
+
+
+def rule_unmatched_reasons(product_fit: dict[str, Any]) -> str:
+    matched = {item for item in value_or_empty(product_fit.get("matched_products")).split("、") if item}
+    scores = product_fit.get("product_scores") if isinstance(product_fit.get("product_scores"), dict) else {}
+    return "；".join(
+        f"{product}：采购需求中可核验的对应能力证据不足，"
+        f"当前规则分数{int(scores.get(product, 0))}，未达到65分明确匹配阈值"
+        for product in COMPANY_PRODUCT_CATALOG
+        if product not in matched
+    )
+
+
 def validate_matched_products(products: str, context: str) -> str:
     if not products:
         return ""
@@ -4415,13 +5128,74 @@ def validate_matched_products(products: str, context: str) -> str:
     return "、".join(dict.fromkeys(kept))
 
 
+def is_definitively_closed_title(title: str) -> bool:
+    value = clean_text(title)
+    return any(
+        marker in value
+        for marker in [
+            "中标候选人",
+            "成交候选人",
+            "中标结果",
+            "成交结果",
+            "结果公告",
+            "中标公告",
+            "成交公告",
+            "合同公告",
+            "合同公示",
+            "更正公告",
+            "变更公告",
+            "澄清公告",
+            "终止公告",
+            "废标公告",
+            "流标公告",
+            "采购失败",
+            "招标失败",
+        ]
+    )
+
+
+def candidate_priority(candidate: dict[str, str]) -> int:
+    title = value_or_empty(candidate.get("title"))
+    snippet = value_or_empty(candidate.get("snippet"))
+    score = 0
+    if any(marker in title for marker in ["招标公告", "采购公告", "竞争性磋商", "竞争性谈判", "询价公告", "询比公告"]):
+        score += 4
+    if contains_ai_keyword(title):
+        score += 3
+    elif contains_ai_keyword(snippet):
+        score += 1
+    if candidate.get("publish_date"):
+        score += 1
+    return score
+
+
 def rule_stage(title: str, text: str) -> str:
-    content = f"{title} {text[:2000]}"
-    if any(word in content for word in ["中标候选人", "成交候选人"]):
+    title_text = clean_text(title)
+    content = f"{title_text} {text[:2000]}"
+    if any(word in title_text for word in ["终止公告", "废标公告", "流标公告", "采购失败", "招标失败"]):
+        return "cancelled_notice"
+    if any(word in title_text for word in ["中标候选人", "成交候选人"]):
         return "award_candidate"
+    if any(word in title_text for word in ["中标结果", "成交结果", "结果公告", "中标公告", "成交公告"]):
+        return "award_result"
+    if any(word in title_text for word in ["合同公告", "合同公示", "合同结果"]):
+        return "contract_notice"
+    if any(word in title_text for word in ["更正公告", "变更公告", "澄清公告"]):
+        return "correction_notice"
     if any(word in content for word in ["招标公告", "公开招标", "资格预审"]):
         return "tender_notice"
-    if any(word in content for word in ["采购公告", "竞争性磋商", "竞争性谈判", "询价公告"]):
+    if any(
+        word in content
+        for word in [
+            "采购公告",
+            "采购邀请",
+            "竞争性磋商",
+            "竞争性谈判",
+            "询价公告",
+            "询比公告",
+            "比选公告",
+        ]
+    ):
         return "procurement_notice"
     if any(word in content for word in ["中标", "成交", "结果公告"]):
         return "award_result"
@@ -4434,12 +5208,13 @@ def rule_analysis(page: dict[str, Any]) -> dict[str, Any] | None:
     if not topic_relevant(page["title"], page["text"]):
         return None
     stage = rule_stage(page["title"], page["text"])
-    if stage not in FINAL_STAGES:
-        stage = "procurement_notice"
+    if stage not in OPPORTUNITY_STAGES:
+        return None
     fields = extract_fields(page["title"], page["text"])
     return {
         "is_opportunity": True,
         "business_stage": stage,
+        "procurement_ai_related": True,
         **fields,
         "organization_industry": infer_industry(
             fields.get("customer_or_org"),
@@ -4451,26 +5226,11 @@ def rule_analysis(page: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def rule_company_product_match(title: str, text: str) -> dict[str, Any]:
-    content = f"{title} {text[:3000]}".lower()
-    products: list[str] = []
-    if any(marker in content for marker in ["财税", "税务", "会计", "发票", "供应链关联", "财务大模型"]):
-        products.append("VZOOM财税大模型")
-    if any(marker in content for marker in ["算力", "gpu", "推理", "集群", "中台", "ai平台", "大模型平台", "数据治理", "服务器"]):
-        products.append("VZOOM AI中台")
-    if any(marker in content for marker in ["智能体", "agent", "智能问答", "智能客服", "编码助手", "办公助手", "工作流", "信贷", "投资", "合规"]):
-        products.append("VZOOM企业级AI智能体")
-    products = list(dict.fromkeys(products))
-    if not products:
-        return {
-            "company_relevance": "low",
-            "matched_products": [],
-            "product_match_reason": "规则判断仅识别到AI相关商机，未命中明确产品关键词，需销售进一步确认。",
-        }
-    relevance = "high" if len(products) == 1 else "medium"
+    result = hybrid_company_product_match({}, title, text)
     return {
-        "company_relevance": relevance,
-        "matched_products": products,
-        "product_match_reason": f"规则关键词匹配到：{'、'.join(products)}。",
+        "company_relevance": result["company_relevance"],
+        "matched_products": result["matched_products"].split("、") if result["matched_products"] else [],
+        "product_match_reason": result["product_match_reason"],
     }
 
 
