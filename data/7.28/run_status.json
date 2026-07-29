@@ -1,23 +1,28 @@
 {
-  "saved_at": "2026-07-29T03:21:15.587250+00:00",
+  "saved_at": "2026-07-29T06:22:20.997473+00:00",
   "status": "ok",
   "date_range": {
     "start_date": "2026-07-23",
     "end_date": "2026-07-29"
   },
-  "opportunities": 47,
+  "opportunities": 211,
   "funnel": {
-    "candidates": 860,
-    "prefiltered_closed": 875,
-    "fetch_attempted": 60,
+    "candidates": 628,
+    "prefiltered_closed": 339,
+    "fetch_attempted": 628,
     "detail_failed": 0,
-    "ai_failed": 3,
-    "not_opportunity": 0,
-    "not_ai_procurement": 4,
-    "outside_date_range": 0,
-    "wrong_stage": 0,
+    "pre_ai_outside_date": 7,
+    "pre_ai_closed_stage": 11,
+    "ai_failed": 37,
+    "not_opportunity": 33,
+    "not_ai_procurement": 245,
+    "outside_date_range": 13,
+    "wrong_stage": 1,
     "record_rejected": 0,
-    "hits": 47
+    "product_ai_calls": 49,
+    "product_ai_skipped": 232,
+    "summary_writes": 29,
+    "hits": 211
   },
   "blocked_sites": [
     "chinabidding_cn"
@@ -27,12 +32,6 @@
     "bm_prechina_net_9600"
   ],
   "site_issues": {
-    "cfcpn_com": {
-      "base_url": "http://www.cfcpn.com/jcw/",
-      "adapter": "cfcpn_api",
-      "status": "keyword_search_forbidden",
-      "reason": "keyword=大语言模型 page=1 returned HTTP 403; continuing with other keywords"
-    },
     "chinabidding_cn": {
       "base_url": "https://www.chinabidding.cn/",
       "adapter": "skip",

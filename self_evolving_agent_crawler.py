@@ -519,14 +519,28 @@ def canonical_attachment_url(href: str, base_url: str, anchor: str = "") -> str 
         return None
     extension = os.path.splitext(parsed.path.lower())[1]
     query_text = urllib.parse.unquote(parsed.query).lower()
+    path_text = urllib.parse.unquote(parsed.path).lower()
     label = clean_text(anchor).lower()
     looks_like_file = extension in ATTACHMENT_EXTENSIONS or any(
         marker in query_text for marker in [".pdf", ".docx", ".xlsx", ".xls", ".csv", ".txt"]
     )
-    looks_like_download = any(marker in label for marker in ["附件", "下载", "采购文件", "需求文件"])
+    attachment_label = any(
+        marker in label for marker in ["附件", "下载", "采购文件", "需求文件", "招标文件"]
+    )
+    download_endpoint = bool(
+        re.search(r"(?:^|[/_-])(?:download|attachment|file|upload|downfile)(?:[/_.-]|$)", path_text)
+        or re.search(r"(?:^|[&])(?:file|filename|filepath|attachment|download|id|uuid)=", query_text)
+    )
+    looks_like_download = attachment_label and download_endpoint
     if not looks_like_file and not looks_like_download:
         return None
-    return urllib.parse.urlunparse(parsed._replace(fragment=""))
+    # urllib.request requires an ASCII request target. Preserve existing
+    # percent escapes while encoding Chinese filenames and path segments.
+    quoted_path = urllib.parse.quote(parsed.path, safe="/%:@!$&'()*+,;=-._~")
+    quoted_query = urllib.parse.quote(parsed.query, safe="=&;%:+,/?@-._~")
+    return urllib.parse.urlunparse(
+        parsed._replace(path=quoted_path, query=quoted_query, fragment="")
+    )
 
 
 def attachment_text_from_bytes(body: bytes, url: str, content_type: str = "") -> str:
@@ -981,6 +995,7 @@ class Config:
     request_retry_delay_seconds: float = 2.0
     request_backoff_multiplier: float = 1.5
     request_interval_seconds: float = 0.2
+    summary_write_interval: int = 10
     verify_ssl: bool = True
     max_response_bytes: int = 3_000_000
     output_dir: str = "data/ai_tenders"
@@ -1062,6 +1077,8 @@ class Config:
             raise ValueError("request_backoff_multiplier must be >= 1")
         if config.request_interval_seconds < 0:
             raise ValueError("request_interval_seconds must be >= 0")
+        if config.summary_write_interval <= 0:
+            raise ValueError("summary_write_interval must be positive")
         if config.max_response_bytes <= 0:
             raise ValueError("max_response_bytes must be positive")
         return config
@@ -1296,12 +1313,17 @@ class AITenderMiner:
             "prefiltered_closed": 0,
             "fetch_attempted": 0,
             "detail_failed": 0,
+            "pre_ai_outside_date": 0,
+            "pre_ai_closed_stage": 0,
             "ai_failed": 0,
             "not_opportunity": 0,
             "not_ai_procurement": 0,
             "outside_date_range": 0,
             "wrong_stage": 0,
             "record_rejected": 0,
+            "product_ai_calls": 0,
+            "product_ai_skipped": 0,
+            "summary_writes": 0,
             "hits": 0,
         }
         self.last_request_at = 0.0
@@ -1330,6 +1352,7 @@ class AITenderMiner:
     def run(self) -> None:
         os.makedirs(os.path.join(self.config.output_dir, "opportunities"), exist_ok=True)
         records: list[dict[str, Any]] = []
+        interrupted = False
 
         if self.config.ai.enabled and not self.preflight_ai():
             print("[done] opportunities=0 reason=ai_unavailable")
@@ -1388,12 +1411,14 @@ class AITenderMiner:
                     self.run_stats["record_rejected"] += 1
                     continue
                 records.append(record)
-                records = self.dedupe_records(records)
-                self.run_stats["hits"] = len(records)
+                self.run_stats["hits"] += 1
                 self.write_opportunity_file(record)
-                self.write_outputs(records, quiet=True)
+                if self.run_stats["hits"] % self.config.summary_write_interval == 0:
+                    self.write_outputs(self.dedupe_records(records), quiet=True)
+                    self.run_stats["summary_writes"] += 1
                 print(f"[hit] {record.get('项目名称', '')[:80]}")
         except KeyboardInterrupt:
+            interrupted = True
             print("\n[stop] interrupted by user; writing current outputs...", file=sys.stderr)
             self.print_funnel()
             if not records:
@@ -1410,10 +1435,13 @@ class AITenderMiner:
                 print(f"[done] opportunities=0 reason=interrupted output_dir={self.config.output_dir}; existing outputs were not overwritten")
                 return
 
+        records = self.dedupe_records(records)
+        self.run_stats["hits"] = len(records)
         self.write_outputs(records)
+        self.run_stats["summary_writes"] += 1
         self.print_funnel()
         self.write_run_status(
-            "ok",
+            "interrupted" if interrupted else "ok",
             {
                 "opportunities": len(records),
                 "funnel": self.run_stats,
@@ -1423,7 +1451,10 @@ class AITenderMiner:
                 "login_status": self.login_status,
             },
         )
-        print(f"[done] opportunities={len(records)} output_dir={self.config.output_dir}")
+        print(
+            f"[done] opportunities={len(records)} "
+            f"reason={'interrupted' if interrupted else 'ok'} output_dir={self.config.output_dir}"
+        )
 
     def print_funnel(self) -> None:
         attempted = self.run_stats["fetch_attempted"]
@@ -1771,7 +1802,10 @@ class AITenderMiner:
             "cqggzy_search",
         }
         if site.adapter in scan_capable_adapters:
-            return ["AI_SCAN", *[keyword for keyword in self.config.search_keywords if keyword != "AI_SCAN"]]
+            # These adapters can request the recent list once and apply the AI
+            # keyword filter locally. Repeating the same pages for every
+            # keyword multiplies requests without adding meaningful coverage.
+            return ["AI_SCAN"]
         return self.config.search_keywords
 
     def search_site_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
@@ -1958,9 +1992,6 @@ class AITenderMiner:
     def fetch_cebpubservice_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
         categories = [
             ("88", "bulletin.html", "招标公告"),
-            ("89", "change.html", "更正公告"),
-            ("90", "result.html", "中标结果公示"),
-            ("91", "candidate.html", "中标候选人公示"),
             ("92", "qualify.html", "资格预审公告"),
         ]
         dates = date_range_for_recent_days(self.config.recent_days)
@@ -2166,10 +2197,6 @@ class AITenderMiner:
     def fetch_chengezhao_records(self, site: SiteConfig, keyword: str, page: int) -> list[dict[str, Any]]:
         categories = [
             "业务公告/项目公告",
-            "业务公告/变更公告",
-            "业务公告/中标公示",
-            "业务公告/结果公告",
-            "业务公告/调研公告",
         ]
         records: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -3332,6 +3359,21 @@ class AITenderMiner:
         return page
 
     def analyze(self, page: dict[str, Any]) -> dict[str, Any] | None:
+        # Cheap deterministic checks must run before the network-bound AI
+        # request. The model can still resolve ambiguous pages.
+        if self.is_outside_recent_window(page):
+            self.run_stats["pre_ai_outside_date"] += 1
+            return None
+        # Only title-level stage markers are safe enough for a hard prefilter.
+        # Active notices routinely mention contract terms in their body.
+        deterministic_stage = rule_stage(page.get("title", ""), "")
+        if (
+            deterministic_stage in KNOWN_BUSINESS_STAGES
+            and deterministic_stage not in OPPORTUNITY_STAGES
+            and deterministic_stage != "not_opportunity"
+        ):
+            self.run_stats["pre_ai_closed_stage"] += 1
+            return None
         if self.config.ai.enabled:
             return self.analyze_with_ai(page)
         return rule_analysis(page)
@@ -3390,8 +3432,32 @@ class AITenderMiner:
             self.run_stats["wrong_stage"] += 1
             return None
         analysis["business_stage"] = stage
-        analysis["product_analysis"] = self.analyze_product_match(page, analysis)
+        if self.should_use_ai_product_match(page, analysis):
+            self.run_stats["product_ai_calls"] += 1
+            analysis["product_analysis"] = self.analyze_product_match(page, analysis)
+        else:
+            self.run_stats["product_ai_skipped"] += 1
         return analysis
+
+    def should_use_ai_product_match(
+        self,
+        page: dict[str, Any],
+        extraction: dict[str, Any],
+    ) -> bool:
+        structured_text = clean_text(
+            " ".join(
+                [
+                    value_or_empty(extraction.get("project_name") or page.get("title")),
+                    value_or_empty(extraction.get("procurement_target")),
+                    value_or_empty(extraction.get("procurement_purpose")),
+                    value_or_empty(extraction.get("procurement_scope")),
+                    " ".join(map(str, extraction.get("core_requirements") or [])),
+                    " ".join(map(str, extraction.get("modules_or_packages") or [])),
+                ]
+            )
+        )
+        scores, _ = rule_product_scores(structured_text, "")
+        return max(scores.values(), default=0) >= 25
 
     def analyze_product_match(
         self,
@@ -3406,7 +3472,7 @@ class AITenderMiner:
             "core_requirements": extraction.get("core_requirements") or [],
             "modules_or_packages": extraction.get("modules_or_packages") or [],
             "procurement_scope": extraction.get("procurement_scope"),
-            "source_text": page.get("text", "")[:10000],
+            "source_text": page.get("text", "")[:6000],
             "company_products": COMPANY_PRODUCT_CATALOG,
         }
         messages = [

@@ -25,6 +25,7 @@
   "request_retries": 1,
   "request_retry_delay_seconds": 0.5,
   "request_interval_seconds": 0.1,
+  "summary_write_interval": 10,
   "output_dir": "data/7.28",
   "safety_max_pages": 3000
 }
